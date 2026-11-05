@@ -4,13 +4,13 @@ import Link from "next/link";
 
 import {
   ArrowRight,
-  Gift,
   ListChecks,
   MapPin,
   Star,
   Wallet,
 } from "lucide-react";
 import MatchPanel, { splitSkills } from "./match-panel";
+import { FacilityBadges } from "./facility-badges";
 
 import { useHasApplied } from "@/lib/demo-history";
 import { AppliedBadge } from "@/components/ui/applied-badge";
@@ -37,7 +37,7 @@ function TopRow({ job, showMatch = true, hideApplied = false }) {
   );
 }
 
-function Meta({ job }) {
+function Meta({ job, selectedFacilities = [] }) {
   const place = job.mode === "Remote" ? "Remote" : `${job.city} • ${job.mode}`;
   return (
     <ul className="mt-3 space-y-1.5 text-sm text-slate-600">
@@ -48,9 +48,8 @@ function Meta({ job }) {
         <Wallet className="h-4 w-4 shrink-0" aria-hidden /> {job.salary}
       </li>
       {job.benefits?.length > 0 && (
-        <li className="flex items-center gap-2">
-          <Gift className="h-4 w-4 shrink-0" aria-hidden /> Benefit:{" "}
-          {job.benefits.join(", ")}
+        <li>
+          <FacilityBadges benefits={job.benefits} selected={selectedFacilities} className="mt-2.5" />
         </li>
       )}
     </ul>
@@ -72,7 +71,7 @@ function SkillSummary({ job }) {
 }
 
 /** hideApplied: sembunyikan lencana "Sudah Dilamar" (dipakai pratinjau tamu, yang belum punya lamaran). */
-export function FeaturedJobCard({ job, hideApplied = false }) {
+export function FeaturedJobCard({ job, hideApplied = false, selectedFacilities = [] }) {
   return (
     <section
       aria-label="Rekomendasi paling cocok"
@@ -99,7 +98,7 @@ export function FeaturedJobCard({ job, hideApplied = false }) {
           <p className="mt-4 leading-relaxed text-slate-700">
             {job.description}
           </p>
-          <Meta job={job} />
+          <Meta job={job} selectedFacilities={selectedFacilities} />
 
           <p className="mt-5 text-sm font-semibold text-ink">
             Keterampilan yang dibutuhkan
@@ -132,7 +131,7 @@ export function FeaturedJobCard({ job, hideApplied = false }) {
   );
 }
 
-export function JobCard({ job }) {
+export function JobCard({ job, selectedFacilities = [] }) {
   return (
     <article className="flex flex-col rounded-2xl border border-line bg-white p-6 shadow-sm">
       <TopRow job={job} />
@@ -143,7 +142,7 @@ export function JobCard({ job }) {
           <p className="text-slate-600">{job.company}</p>
         </div>
       </div>
-      <Meta job={job} />
+      <Meta job={job} selectedFacilities={selectedFacilities} />
 
       <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-5">
         <SkillSummary job={job} />

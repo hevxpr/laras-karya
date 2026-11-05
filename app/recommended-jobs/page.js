@@ -52,6 +52,7 @@ export default function RecommendedJobsPage() {
         <div className="mt-3">
           <PageBanner
             image="/images/banner-jobs.jpg"
+            imagePosition="center 12%"
             badge={
               <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-semibold text-ai">
                 <Sparkles className="h-3 w-3" aria-hidden /> Berdasarkan hasil
