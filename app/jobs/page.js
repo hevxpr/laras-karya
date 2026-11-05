@@ -15,7 +15,7 @@ export default function PublicJobsPage() {
     <PublicShell active="/jobs">
       <main className="flex-1 bg-surface">
         <div className="mx-auto max-w-[1200px] px-4 pb-16 pt-8 md:px-6 xl:px-8">
-          <PageBanner image="/images/banner-jobs.jpg" title="Lowongan Karier Hijau">
+          <PageBanner image="/images/banner-jobs.jpg" imagePosition="center 12%" title="Lowongan Karier Hijau">
             Jelajahi semua lowongan sektor hijau yang masih dibuka, dari energi terbarukan sampai konservasi.
           </PageBanner>
           {/* JobCatalogFromUrl membaca ?q= dari URL; selama itu, daftar tanpa pencarian tampil lebih dulu */}

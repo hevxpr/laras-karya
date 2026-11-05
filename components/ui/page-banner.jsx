@@ -1,13 +1,14 @@
 // Banner judul halaman: foto di belakang gradien hijau.
 // Tanpa foto pun tetap tampil (hijau polos). Foto bersifat dekoratif.
-export function PageBanner({ image, badge, title, children }) {
+// imagePosition: titik fokus foto (nilai background-position), mis. "center 15%" agar kepala tidak terpotong.
+export function PageBanner({ image, imagePosition = "center", badge, title, children }) {
   return (
     <section className="relative overflow-hidden rounded-2xl bg-brand">
       {image && (
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url('${image}')` }}
+          className="absolute inset-0 bg-cover"
+          style={{ backgroundImage: `url('${image}')`, backgroundPosition: imagePosition }}
         />
       )}
       {/* Di HP teks memenuhi lebar banner, jadi gradien dibuat lebih pekat agar tetap terbaca */}

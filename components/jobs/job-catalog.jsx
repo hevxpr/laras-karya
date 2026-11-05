@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChevronDown, HeartHandshake, MapPin, SearchX, SlidersHorizontal, Sparkles } from "lucide-react";
+import { Check, ChevronDown, HeartHandshake, MapPin, SearchX, SlidersHorizontal, Sparkles } from "lucide-react";
 
 import { CatalogJobCard } from "@/components/jobs/catalog-job-card";
 import Pagination from "@/components/jobs/pagination";
@@ -14,11 +14,11 @@ import {
   CITY_OPTIONS,
   EMPLOYMENT_TYPES,
   EXPERIENCE_LEVELS,
-  FACILITY_OPTIONS,
+  FACILITIES,
   MODE_OPTIONS,
   SECTOR_OPTIONS,
   SORT_OPTIONS,
-  hasFacility,
+  hasAllFacilities,
   sortJobs,
 } from "@/lib/job-catalog";
 import { LOGIN_PATH, REGISTER_PATH } from "@/lib/routes";
@@ -26,7 +26,7 @@ import { jobSearchFields, matchesQuery, replaceQueryParam } from "@/lib/search";
 
 const PAGE_SIZE = 6;
 const ALL = "";
-const EMPTY_FILTERS = { sector: ALL, mode: ALL, city: ALL, facility: ALL, experience: ALL, type: ALL };
+const EMPTY_FILTERS = { sector: ALL, mode: ALL, city: ALL, facilities: [], experience: ALL, type: ALL };
 
 function FilterSelect({ id, label, value, onChange, options, allLabel, icon: Icon }) {
   return (
@@ -94,6 +94,85 @@ function CityPicker({ value, onChange }) {
   );
 }
 
+/**
+ * Filter fasilitas ramah perempuan: chip yang bisa dipilih lebih dari satu (AND: lowongan harus
+ * menyediakan semuanya). Selalu terlihat (bukan di balik tombol Filter) karena ini kebutuhan utama
+ * pencari kerja perempuan. Angka di chip = jumlah lowongan bila chip itu ditambahkan ke pilihan sekarang;
+ * chip yang pasti menghasilkan nol dinonaktifkan supaya tidak berujung halaman kosong.
+ * Di layar kecil chip bergulir ke samping agar tidak memakan banyak tinggi.
+ */
+function FacilityFilter({ selected, counts, onToggle, onClear }) {
+  // Bayangan di tepi kanan (hanya layar kecil) menandakan barisnya bisa digeser; hilang saat sudah di ujung.
+  const [atEnd, setAtEnd] = useState(false);
+  return (
+    <div role="group" aria-labelledby="facility-title" className="mt-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <p id="facility-title" className="flex items-center gap-1.5 text-sm font-bold text-ink">
+          <HeartHandshake className="h-4 w-4 text-brand" aria-hidden />
+          Fasilitas ramah perempuan
+        </p>
+        <p className="text-[13px] text-slate-700">
+          {selected.length > 0 ? (
+            <>
+              Menampilkan lowongan yang memiliki semua fasilitas terpilih
+              {" · "}
+              <button type="button" onClick={onClear} className="font-semibold text-brand hover:underline">
+                Hapus pilihan
+              </button>
+            </>
+          ) : (
+            "Pilih satu atau lebih"
+          )}
+        </p>
+      </div>
+      <div className="relative">
+      {/* relative: teks sr-only di dalam chip bersifat absolute; tanpa ini ia lolos dari area gulir dan melebarkan seluruh halaman */}
+      <ul
+        onScroll={(e) => setAtEnd(e.currentTarget.scrollLeft + e.currentTarget.clientWidth >= e.currentTarget.scrollWidth - 4)}
+        className="relative -mx-1 mt-2 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible"
+      >
+        {FACILITIES.map((f) => {
+          const on = selected.includes(f.value);
+          const count = counts[f.value] ?? 0;
+          const disabled = !on && count === 0;
+          return (
+            <li key={f.value} className="shrink-0">
+              <button
+                type="button"
+                aria-pressed={on}
+                disabled={disabled}
+                onClick={() => onToggle(f.value)}
+                className={`inline-flex min-h-10 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${
+                  on
+                    ? "border-brand bg-brand text-white"
+                    : "border-slate-200 bg-white text-ink hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-slate-200 disabled:hover:text-ink"
+                }`}
+              >
+                {on ? <Check className="h-4 w-4" aria-hidden /> : null}
+                {f.label}
+                <span
+                  className={`grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-xs font-semibold tabular-nums ${
+                    on ? "bg-white/25 text-white" : "bg-slate-100 text-slate-700"
+                  }`}
+                >
+                  <span className="sr-only"> (</span>
+                  {count}
+                  <span className="sr-only"> lowongan)</span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <div
+        aria-hidden
+        className={`pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white to-transparent transition-opacity sm:hidden ${atEnd ? "opacity-0" : "opacity-100"}`}
+      />
+      </div>
+    </div>
+  );
+}
+
 /** Ajakan asesmen: menggantikan halaman "cicipan" lama. */
 function AssessmentInvite() {
   return (
@@ -142,23 +221,41 @@ export default function JobCatalog({ initialQuery = "" }) {
   const urlTimer = useRef(null);
   useEffect(() => () => clearTimeout(urlTimer.current), []);
 
-  const results = useMemo(() => {
-    const filtered = CATALOG_JOBS.filter(
-      (j) =>
-        matchesQuery(jobSearchFields(j), query) &&
-        (!filters.sector || j.sector === filters.sector) &&
-        (!filters.mode || j.mode === filters.mode) &&
-        (!filters.city || j.city === filters.city) &&
-        (!filters.facility || hasFacility(j, filters.facility)) &&
-        (!filters.experience || j.experienceLevel === filters.experience) &&
-        (!filters.type || j.employmentType === filters.type),
-    );
-    return sortJobs(filtered, sort);
-  }, [query, filters, sort]);
+  // Lowongan yang lolos pencarian dan semua filter kecuali fasilitas (dasar untuk angka di chip fasilitas).
+  const baseJobs = useMemo(
+    () =>
+      CATALOG_JOBS.filter(
+        (j) =>
+          matchesQuery(jobSearchFields(j), query) &&
+          (!filters.sector || j.sector === filters.sector) &&
+          (!filters.mode || j.mode === filters.mode) &&
+          (!filters.city || j.city === filters.city) &&
+          (!filters.experience || j.experienceLevel === filters.experience) &&
+          (!filters.type || j.employmentType === filters.type),
+      ),
+    [query, filters.sector, filters.mode, filters.city, filters.experience, filters.type],
+  );
 
-  const activeFilters = Object.values(filters).filter(Boolean).length;
-  // Badge pada tombol Filter (mobile) hanya menghitung filter di dalam panelnya; kota selalu terlihat di luar panel.
-  const panelFilters = Object.entries(filters).filter(([key, value]) => key !== "city" && value).length;
+  const results = useMemo(
+    () => sortJobs(baseJobs.filter((j) => hasAllFacilities(j, filters.facilities)), sort),
+    [baseJobs, filters.facilities, sort],
+  );
+
+  const facilityCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        FACILITIES.map((f) => [
+          f.value,
+          baseJobs.filter((j) => hasAllFacilities(j, [...new Set([...filters.facilities, f.value])])).length,
+        ]),
+      ),
+    [baseJobs, filters.facilities],
+  );
+
+  // Filter pilihan tunggal + satu per fasilitas terpilih.
+  const activeFilters = Object.entries(filters).filter(([key, value]) => key !== "facilities" && value).length + filters.facilities.length;
+  // Badge pada tombol Filter (mobile) hanya menghitung filter di dalam panelnya; kota dan fasilitas selalu terlihat di luar panel.
+  const panelFilters = Object.entries(filters).filter(([key, value]) => key !== "city" && key !== "facilities" && value).length;
   const searching = query.trim().length > 0;
   const totalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
   const shown = results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -171,6 +268,17 @@ export default function JobCatalog({ initialQuery = "" }) {
   }
   const changeFilter = (key) => (value) => {
     setFilters((f) => ({ ...f, [key]: value }));
+    setPage(1);
+  };
+  const toggleFacility = (value) => {
+    setFilters((f) => ({
+      ...f,
+      facilities: f.facilities.includes(value) ? f.facilities.filter((v) => v !== value) : [...f.facilities, value],
+    }));
+    setPage(1);
+  };
+  const clearFacilities = () => {
+    setFilters((f) => ({ ...f, facilities: [] }));
     setPage(1);
   };
   function resetAll() {
@@ -190,7 +298,7 @@ export default function JobCatalog({ initialQuery = "" }) {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <SearchBar
             label="Cari lowongan"
-            placeholder="Cari posisi, perusahaan, kota, atau skill"
+            placeholder="Cari posisi, perusahaan, kota, skill, atau fasilitas"
             value={query}
             onChange={changeQuery}
             className="flex-1"
@@ -214,14 +322,15 @@ export default function JobCatalog({ initialQuery = "" }) {
 
         <div
           id="job-filters"
-          className={`mt-4 grid grid-cols-2 gap-3 md:grid-cols-5 ${showFilters ? "" : "max-sm:hidden"}`}
+          className={`mt-4 grid grid-cols-2 gap-3 md:grid-cols-4 ${showFilters ? "" : "max-sm:hidden"}`}
         >
           <FilterSelect id="f-sector" label="Sektor" value={filters.sector} onChange={changeFilter("sector")} options={SECTOR_OPTIONS} allLabel="Semua sektor" />
           <FilterSelect id="f-mode" label="Pola kerja" value={filters.mode} onChange={changeFilter("mode")} options={MODE_OPTIONS} allLabel="Semua pola" />
-          <FilterSelect id="f-facility" label="Fasilitas pendukung" icon={HeartHandshake} value={filters.facility} onChange={changeFilter("facility")} options={FACILITY_OPTIONS} allLabel="Semua fasilitas" />
           <FilterSelect id="f-exp" label="Pengalaman" value={filters.experience} onChange={changeFilter("experience")} options={EXPERIENCE_LEVELS} allLabel="Semua tingkat" />
           <FilterSelect id="f-type" label="Jenis pekerjaan" value={filters.type} onChange={changeFilter("type")} options={EMPLOYMENT_TYPES} allLabel="Semua jenis" />
         </div>
+
+        <FacilityFilter selected={filters.facilities} counts={facilityCounts} onToggle={toggleFacility} onClear={clearFacilities} />
       </section>
 
       <div ref={listRef} className="mt-6 flex scroll-mt-24 flex-wrap items-end justify-between gap-3">
@@ -249,7 +358,7 @@ export default function JobCatalog({ initialQuery = "" }) {
         <EmptyState
           icon={SearchX}
           title={searching ? `Tidak ada lowongan untuk “${query.trim()}”` : "Belum ada lowongan dengan filter ini"}
-          text="Coba kata lain atau kurangi filter, misalnya pilih semua kota atau semua pola kerja."
+          text={filters.facilities.length > 1 ? "Coba kurangi fasilitas yang dipilih, atau pilih semua kota dan semua pola kerja." : "Coba kata lain atau kurangi filter, misalnya pilih semua kota atau semua pola kerja."}
         >
           <button
             type="button"
@@ -263,7 +372,7 @@ export default function JobCatalog({ initialQuery = "" }) {
         <>
           <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {shown.map((job) => (
-              <CatalogJobCard key={job.id} job={job} />
+              <CatalogJobCard key={job.id} job={job} selectedFacilities={filters.facilities} />
             ))}
           </div>
           <Pagination page={page} totalPages={totalPages} onChange={changePage} />
