@@ -7,7 +7,7 @@ import { PageBanner } from "@/components/ui/page-banner";
 export const metadata = {
   title: "Lowongan Karier Hijau | Laras Karya",
   description:
-    "Jelajahi semua lowongan sektor hijau yang masih dibuka. Cari dan saring berdasarkan sektor, kota, pola kerja, dan pengalaman.",
+    "Jelajahi semua lowongan sektor hijau yang masih dibuka. Cari dan saring berdasarkan sektor, kota, pola kerja, fasilitas pendukung, dan pengalaman.",
 };
 
 export default function PublicJobsPage() {

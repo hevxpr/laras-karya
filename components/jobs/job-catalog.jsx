@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChevronDown, SearchX, SlidersHorizontal, Sparkles } from "lucide-react";
+import { ChevronDown, HeartHandshake, MapPin, SearchX, SlidersHorizontal, Sparkles } from "lucide-react";
 
 import { CatalogJobCard } from "@/components/jobs/catalog-job-card";
 import Pagination from "@/components/jobs/pagination";
@@ -14,9 +14,11 @@ import {
   CITY_OPTIONS,
   EMPLOYMENT_TYPES,
   EXPERIENCE_LEVELS,
+  FACILITY_OPTIONS,
   MODE_OPTIONS,
   SECTOR_OPTIONS,
   SORT_OPTIONS,
+  hasFacility,
   sortJobs,
 } from "@/lib/job-catalog";
 import { LOGIN_PATH, REGISTER_PATH } from "@/lib/routes";
@@ -24,12 +26,13 @@ import { jobSearchFields, matchesQuery, replaceQueryParam } from "@/lib/search";
 
 const PAGE_SIZE = 6;
 const ALL = "";
-const EMPTY_FILTERS = { sector: ALL, mode: ALL, city: ALL, experience: ALL, type: ALL };
+const EMPTY_FILTERS = { sector: ALL, mode: ALL, city: ALL, facility: ALL, experience: ALL, type: ALL };
 
-function FilterSelect({ id, label, value, onChange, options, allLabel }) {
+function FilterSelect({ id, label, value, onChange, options, allLabel, icon: Icon }) {
   return (
     <div className="min-w-0">
-      <label htmlFor={id} className="mb-1 block text-xs font-semibold text-slate-600">
+      <label htmlFor={id} className="mb-1 flex items-center gap-1 text-xs font-semibold text-slate-600">
+        {Icon ? <Icon className="h-3.5 w-3.5 text-brand" aria-hidden /> : null}
         {label}
       </label>
       <div className="relative">
@@ -53,6 +56,40 @@ function FilterSelect({ id, label, value, onChange, options, allLabel }) {
         </select>
         <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
       </div>
+    </div>
+  );
+}
+
+/**
+ * Pemilih kota di baris utama, sejajar kotak pencarian (pasangan "apa" + "di mana").
+ * Tinggi dan bentuk sama dengan kotak pencarian; label tetap ada untuk pembaca layar.
+ */
+function CityPicker({ value, onChange }) {
+  return (
+    <div className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
+      <label htmlFor="f-city" className="sr-only">
+        Kota
+      </label>
+      <MapPin
+        className={`pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 ${value ? "text-brand" : "text-slate-500"}`}
+        aria-hidden
+      />
+      <select
+        id="f-city"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`min-h-12 w-full appearance-none rounded-full border bg-white pl-10 pr-10 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 ${
+          value ? "border-brand font-semibold text-brand" : "border-slate-200 text-ink"
+        }`}
+      >
+        <option value={ALL}>Semua kota</option>
+        {CITY_OPTIONS.map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
     </div>
   );
 }
@@ -112,6 +149,7 @@ export default function JobCatalog({ initialQuery = "" }) {
         (!filters.sector || j.sector === filters.sector) &&
         (!filters.mode || j.mode === filters.mode) &&
         (!filters.city || j.city === filters.city) &&
+        (!filters.facility || hasFacility(j, filters.facility)) &&
         (!filters.experience || j.experienceLevel === filters.experience) &&
         (!filters.type || j.employmentType === filters.type),
     );
@@ -119,6 +157,8 @@ export default function JobCatalog({ initialQuery = "" }) {
   }, [query, filters, sort]);
 
   const activeFilters = Object.values(filters).filter(Boolean).length;
+  // Badge pada tombol Filter (mobile) hanya menghitung filter di dalam panelnya; kota selalu terlihat di luar panel.
+  const panelFilters = Object.entries(filters).filter(([key, value]) => key !== "city" && value).length;
   const searching = query.trim().length > 0;
   const totalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
   const shown = results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -155,18 +195,21 @@ export default function JobCatalog({ initialQuery = "" }) {
             onChange={changeQuery}
             className="flex-1"
           />
-          <button
-            type="button"
-            onClick={() => setShowFilters((v) => !v)}
-            aria-expanded={showFilters}
-            aria-controls="job-filters"
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-slate-200 px-5 text-sm font-semibold text-ink transition hover:border-brand sm:hidden"
-          >
-            <SlidersHorizontal className="h-4 w-4" aria-hidden /> Filter
-            {activeFilters > 0 ? (
-              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-brand px-1.5 text-xs text-white">{activeFilters}</span>
-            ) : null}
-          </button>
+          <div className="flex items-center gap-3">
+            <CityPicker value={filters.city} onChange={changeFilter("city")} />
+            <button
+              type="button"
+              onClick={() => setShowFilters((v) => !v)}
+              aria-expanded={showFilters}
+              aria-controls="job-filters"
+              className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-full border border-slate-200 px-5 text-sm font-semibold text-ink transition hover:border-brand sm:hidden"
+            >
+              <SlidersHorizontal className="h-4 w-4" aria-hidden /> Filter
+              {panelFilters > 0 ? (
+                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-brand px-1.5 text-xs text-white">{panelFilters}</span>
+              ) : null}
+            </button>
+          </div>
         </div>
 
         <div
@@ -175,7 +218,7 @@ export default function JobCatalog({ initialQuery = "" }) {
         >
           <FilterSelect id="f-sector" label="Sektor" value={filters.sector} onChange={changeFilter("sector")} options={SECTOR_OPTIONS} allLabel="Semua sektor" />
           <FilterSelect id="f-mode" label="Pola kerja" value={filters.mode} onChange={changeFilter("mode")} options={MODE_OPTIONS} allLabel="Semua pola" />
-          <FilterSelect id="f-city" label="Kota" value={filters.city} onChange={changeFilter("city")} options={CITY_OPTIONS} allLabel="Semua kota" />
+          <FilterSelect id="f-facility" label="Fasilitas pendukung" icon={HeartHandshake} value={filters.facility} onChange={changeFilter("facility")} options={FACILITY_OPTIONS} allLabel="Semua fasilitas" />
           <FilterSelect id="f-exp" label="Pengalaman" value={filters.experience} onChange={changeFilter("experience")} options={EXPERIENCE_LEVELS} allLabel="Semua tingkat" />
           <FilterSelect id="f-type" label="Jenis pekerjaan" value={filters.type} onChange={changeFilter("type")} options={EMPLOYMENT_TYPES} allLabel="Semua jenis" />
         </div>
