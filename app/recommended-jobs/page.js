@@ -5,7 +5,7 @@ import JobList, { JobListFromUrl } from "@/components/jobs/job-list";
 import { GuestPreview } from "@/components/jobs/guest-preview";
 import { Footer } from "@/components/layout/footer";
 import { PageBanner } from "@/components/ui/page-banner";
-import { hasSession } from "@/lib/mock-session";
+import { hasSession } from "@/lib/session";
 
 export const metadata = {
   title: "Rekomendasi Karier Hijau | Laras Karya",
@@ -17,7 +17,7 @@ export const metadata = {
   Dua keadaan halaman ini:
   - tamu (belum masuk)  -> GuestPreview: satu rekomendasi utuh, sisanya buram + ajakan daftar
   - pengguna sudah masuk -> daftar penuh (JobList)
-  Pembedanya cookie sesi (lib/mock-session.js), dibaca di server di dalam <Suspense>.
+  Pembedanya sesi Supabase Auth (lib/session.js), dibaca di server di dalam <Suspense>.
 */
 async function Results() {
   if (!(await hasSession())) return <GuestPreview />;

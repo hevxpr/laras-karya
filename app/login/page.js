@@ -6,6 +6,7 @@ import { login } from "./actions";
 
 import { AuthShell } from "@/components/auth/auth-shell";
 import { DemoPrefill } from "@/components/auth/demo-prefill";
+import { AuthError } from "@/components/auth/auth-error";
 import { NextField, NextLink } from "@/components/auth/next-field";
 import { GoogleIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
@@ -62,18 +63,19 @@ export default function LoginPage() {
 
         <form className="mt-6 space-y-4 lg:mt-[clamp(1rem,3vh,1.5rem)] lg:space-y-[clamp(0.5rem,1.8vh,1rem)]">
           <NextField />
+          <AuthError />
           <DemoPrefill values={{ identifier: DEMO_CREDENTIALS.identifier, password: DEMO_CREDENTIALS.password }} />
           <div>
             <label htmlFor="identifier" className="mb-2 block text-sm font-semibold text-ink lg:mb-1.5">
-              Email atau Nomor HP
+              Email
             </label>
             <div className="flex h-12 items-center lg:h-[clamp(2.25rem,5.4vh,3rem)] gap-3 rounded-xl border border-line bg-white px-4 focus-within:border-brand focus-within:ring-3 focus-within:ring-brand/20">
               <Mail className="size-5 shrink-0 text-ink/60" aria-hidden="true" />
               <input
                 id="identifier"
                 name="identifier"
-                type="text"
-                autoComplete="username" required
+                type="email"
+                autoComplete="email" required
                 placeholder="contoh@email.com"
                 className="h-full min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-subtle/80"
               />

@@ -1,9 +1,10 @@
 "use server";
 
-import { clearHistory, endSession } from "@/lib/mock-session";
+import { signOutSilently } from "@/app/auth/session-actions";
+import { clearHistory } from "@/lib/session";
 
-/** Kembali jadi tamu (hapus cookie sesi dan penanda riwayat). Dipanggil halaman /demo. */
+/** Kembali jadi tamu (keluar dari Supabase dan hapus penanda riwayat). Dipanggil halaman /demo. */
 export async function resetSession() {
-  await endSession();
+  await signOutSilently();
   await clearHistory();
 }
