@@ -9,6 +9,8 @@ import { Bookmark, LogOut, Menu, User, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS, MOCK_USER, isNavItemActive } from "@/lib/navigation";
 import { signOut } from "@/app/auth/actions";
+import { clearAssessmentStore } from "@/context/assessment-store";
+import { useAccount } from "@/lib/use-account";
 
 /** Item-item yang muncul di dropdown avatar profil. */
 const PROFILE_MENU = [
@@ -67,7 +69,7 @@ function ProfileDropdown({ user, onClose }) {
           <li key={label}>
             {isDivider && <hr className="my-1.5 border-line" />}
             {isSignOut ? (
-              <form action={signOut}>
+              <form action={signOut} onSubmit={clearAssessmentStore}>
                 <button
                   type="submit"
                   role="menuitem"
@@ -206,7 +208,7 @@ function NavbarView({ user, pathname, open, onToggle }) {
           {PROFILE_MENU.map(({ label, href, icon: Icon, signOut: isSignOut }) => (
             <li key={label}>
               {isSignOut ? (
-                <form action={signOut}>
+                <form action={signOut} onSubmit={clearAssessmentStore}>
                   <button
                     type="submit"
                     className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium text-ink/80"
@@ -252,7 +254,10 @@ function NavbarRouter({ user }) {
  * Fallback = navbar yang sama tanpa penanda menu aktif, jadi tidak ada loncatan tampilan.
  * @param {{ user?: { name: string, initials: string } }} props
  */
-export function Navbar({ user = MOCK_USER }) {
+export function Navbar({ user: userProp }) {
+  // Nama asli dari profil Supabase; MOCK_USER hanya untuk mode demo/tanpa Supabase.
+  const account = useAccount();
+  const user = userProp ?? account ?? MOCK_USER;
   return (
     <Suspense fallback={<NavbarView user={user} pathname="" open={false} onToggle={() => {}} />}>
       <NavbarRouter user={user} />
