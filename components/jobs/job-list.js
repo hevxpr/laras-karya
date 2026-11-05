@@ -8,6 +8,8 @@ import { hasApplied } from "@/lib/applications-data";
 import { useHistoryStage } from "@/lib/demo-history";
 import { getOpenJobsAppliedLast } from "@/lib/job-ordering";
 import { FeaturedJobCard, JobCard } from "./job-card";
+import { FacilityFilter } from "./facility-filter";
+import { FACILITIES, hasAllFacilities } from "@/lib/job-catalog";
 import Pagination from "./pagination";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SearchBar } from "@/components/ui/search-bar";
@@ -79,18 +81,26 @@ export default function JobList({ initialQuery = "" }) {
     [history],
   );
   const [mode, setMode] = useState("semua");
+  const [facilities, setFacilities] = useState([]);
   const [query, setQuery] = useState(initialQuery);
   const [page, setPage] = useState(1);
   const othersRef = useRef(null);
   const urlTimer = useRef(null);
   useEffect(() => () => clearTimeout(urlTimer.current), []);
 
-  const filtered = useMemo(
-    () =>
-      openJobs.filter(
-        (j) => (mode === "semua" || j.mode === mode) && matchesQuery(jobSearchFields(j), query),
-      ),
+  // Lolos pola kerja dan pencarian (dasar untuk angka di chip fasilitas). Urutan skor/lamaran tidak berubah:
+  // filter hanya menyaring, jadi kartu utama = lowongan paling atas yang masih lolos.
+  const baseJobs = useMemo(
+    () => openJobs.filter((j) => (mode === "semua" || j.mode === mode) && matchesQuery(jobSearchFields(j), query)),
     [openJobs, mode, query],
+  );
+  const filtered = useMemo(() => baseJobs.filter((j) => hasAllFacilities(j, facilities)), [baseJobs, facilities]);
+  const facilityCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        FACILITIES.map((f) => [f.value, baseJobs.filter((j) => hasAllFacilities(j, [...new Set([...facilities, f.value])])).length]),
+      ),
+    [baseJobs, facilities],
   );
   const searching = query.trim().length > 0;
 
@@ -111,8 +121,17 @@ export default function JobList({ initialQuery = "" }) {
     clearTimeout(urlTimer.current);
     urlTimer.current = setTimeout(() => replaceQueryParam(v), 300);
   }
+  function toggleFacility(value) {
+    setFacilities((list) => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value]));
+    setPage(1);
+  }
+  function clearFacilities() {
+    setFacilities([]);
+    setPage(1);
+  }
   function resetFilters() {
     setMode("semua");
+    setFacilities([]);
     changeQuery("");
   }
   function changePage(p) {
@@ -133,7 +152,7 @@ export default function JobList({ initialQuery = "" }) {
     <div className="mt-6">
       <SearchBar
         label="Cari lowongan"
-        placeholder="Cari posisi, perusahaan, kota, atau skill"
+        placeholder="Cari posisi, perusahaan, kota, skill, atau fasilitas"
         value={query}
         onChange={changeQuery}
         className="mb-4 max-w-xl"
@@ -152,10 +171,18 @@ export default function JobList({ initialQuery = "" }) {
         </p>
       </div>
 
+      <FacilityFilter
+        selected={facilities}
+        counts={facilityCounts}
+        onToggle={toggleFacility}
+        onClear={clearFacilities}
+        fadeClass="from-surface"
+      />
+
       {top ? (
         <>
           <div className="mt-6">
-            <FeaturedJobCard job={top} />
+            <FeaturedJobCard job={top} selectedFacilities={facilities} />
           </div>
 
           {visible.length > 0 && (
@@ -165,7 +192,7 @@ export default function JobList({ initialQuery = "" }) {
               </SectionTitle>
               <div className="mt-4 grid items-stretch gap-5 md:grid-cols-2">
                 {visible.map((job) => (
-                  <JobCard key={job.id} job={job} />
+                  <JobCard key={job.id} job={job} selectedFacilities={facilities} />
                 ))}
               </div>
               <Pagination
@@ -187,7 +214,9 @@ export default function JobList({ initialQuery = "" }) {
           text={
             searching
               ? "Coba kata lain, misalnya nama posisi, kota, atau skill, atau ganti pola kerja."
-              : "Coba ganti pola kerja untuk melihat rekomendasi lain."
+              : facilities.length > 1
+                ? "Coba kurangi fasilitas yang dipilih, atau ganti pola kerja."
+                : "Coba ganti pola kerja atau fasilitas untuk melihat rekomendasi lain."
           }
         >
           <button

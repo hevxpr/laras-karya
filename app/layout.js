@@ -1,5 +1,6 @@
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { Navbar } from "@/components/layout/navbar";
+import { AssessmentSync } from "@/components/assessment/assessment-sync";
 import PwaRegister from "@/components/pwa-register";
 import "./globals.css";
 
@@ -45,6 +46,9 @@ export default function RootLayout({ children }) {
             </NavbarGate>
           </Suspense>
           {children}
+          <Suspense fallback={null}>
+            <AssessmentSync />
+          </Suspense>
           <PwaRegister />
         </ToastProvider>
       </body>

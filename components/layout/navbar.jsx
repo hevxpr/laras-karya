@@ -8,13 +8,16 @@ import { Bookmark, LogOut, Menu, User, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS, MOCK_USER, isNavItemActive } from "@/lib/navigation";
+import { signOut } from "@/app/auth/actions";
+import { clearAssessmentStore } from "@/context/assessment-store";
+import { useAccount } from "@/lib/use-account";
 
 /** Item-item yang muncul di dropdown avatar profil. */
 const PROFILE_MENU = [
   { label: "Profil Saya", href: "/profile", icon: User },
   { label: "Lowongan Tersimpan", href: "/bookmarks", icon: Bookmark },
   // Tambahkan item lain di sini (mis. Pengaturan)
-  { label: "Keluar", href: "/login", icon: LogOut, isDivider: true },
+  { label: "Keluar", icon: LogOut, isDivider: true, signOut: true },
 ];
 
 /**
@@ -62,18 +65,31 @@ function ProfileDropdown({ user, onClose }) {
 
       {/* Menu items */}
       <ul className="py-1.5">
-        {PROFILE_MENU.map(({ label, href, icon: Icon, isDivider }) => (
-          <li key={href}>
+        {PROFILE_MENU.map(({ label, href, icon: Icon, isDivider, signOut: isSignOut }) => (
+          <li key={label}>
             {isDivider && <hr className="my-1.5 border-line" />}
-            <Link
-              href={href}
-              role="menuitem"
-              onClick={onClose}
-              className="flex min-h-10 items-center gap-3 px-4 text-sm text-ink/80 transition-colors hover:bg-brand-light hover:text-brand focus-visible:bg-brand-light focus-visible:text-brand focus-visible:outline-none"
-            >
-              <Icon className="size-4 shrink-0" aria-hidden="true" />
-              {label}
-            </Link>
+            {isSignOut ? (
+              <form action={signOut} onSubmit={clearAssessmentStore}>
+                <button
+                  type="submit"
+                  role="menuitem"
+                  className="flex min-h-10 w-full items-center gap-3 px-4 text-left text-sm text-ink/80 transition-colors hover:bg-brand-light hover:text-brand focus-visible:bg-brand-light focus-visible:text-brand focus-visible:outline-none"
+                >
+                  <Icon className="size-4 shrink-0" aria-hidden="true" />
+                  {label}
+                </button>
+              </form>
+            ) : (
+              <Link
+                href={href}
+                role="menuitem"
+                onClick={onClose}
+                className="flex min-h-10 items-center gap-3 px-4 text-sm text-ink/80 transition-colors hover:bg-brand-light hover:text-brand focus-visible:bg-brand-light focus-visible:text-brand focus-visible:outline-none"
+              >
+                <Icon className="size-4 shrink-0" aria-hidden="true" />
+                {label}
+              </Link>
+            )}
           </li>
         ))}
       </ul>
@@ -189,15 +205,27 @@ function NavbarView({ user, pathname, open, onToggle }) {
           <li>
             <hr className="my-1.5 border-line" />
           </li>
-          {PROFILE_MENU.map(({ label, href, icon: Icon }) => (
-            <li key={href}>
-              <Link
-                href={href}
-                className="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-ink/80"
-              >
-                <Icon className="size-4" aria-hidden="true" />
-                {label}
-              </Link>
+          {PROFILE_MENU.map(({ label, href, icon: Icon, signOut: isSignOut }) => (
+            <li key={label}>
+              {isSignOut ? (
+                <form action={signOut} onSubmit={clearAssessmentStore}>
+                  <button
+                    type="submit"
+                    className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium text-ink/80"
+                  >
+                    <Icon className="size-4" aria-hidden="true" />
+                    {label}
+                  </button>
+                </form>
+              ) : (
+                <Link
+                  href={href}
+                  className="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-ink/80"
+                >
+                  <Icon className="size-4" aria-hidden="true" />
+                  {label}
+                </Link>
+              )}
             </li>
           ))}
         </ul>
@@ -226,7 +254,10 @@ function NavbarRouter({ user }) {
  * Fallback = navbar yang sama tanpa penanda menu aktif, jadi tidak ada loncatan tampilan.
  * @param {{ user?: { name: string, initials: string } }} props
  */
-export function Navbar({ user = MOCK_USER }) {
+export function Navbar({ user: userProp }) {
+  // Nama asli dari profil Supabase; MOCK_USER hanya untuk mode demo/tanpa Supabase.
+  const account = useAccount();
+  const user = userProp ?? account ?? MOCK_USER;
   return (
     <Suspense fallback={<NavbarView user={user} pathname="" open={false} onToggle={() => {}} />}>
       <NavbarRouter user={user} />

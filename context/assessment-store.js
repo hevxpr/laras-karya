@@ -65,6 +65,11 @@ function subscribe(notify) {
   return () => listeners.delete(notify);
 }
 
+/** Kosongkan jawaban di browser (dipanggil saat keluar, supaya akun lain di tab ini tidak mewarisinya). */
+export function clearAssessmentStore() {
+  write(INITIAL_ANSWERS);
+}
+
 export function useAssessment() {
   // Saat render di server dipakai INITIAL_ANSWERS; setelah hydrate otomatis memakai isi sessionStorage.
   const answers = useSyncExternalStore(subscribe, read, () => INITIAL_ANSWERS);
@@ -83,5 +88,21 @@ export function useAssessment() {
 
   const reset = useCallback(() => write(INITIAL_ANSWERS), []);
 
-  return { answers, updateStep, reachStep, reset };
+  /** Ganti seluruh jawaban (mis. memuat ulang asesmen yang tersimpan di database). */
+  const replaceAll = useCallback((next) => {
+    write({
+      ...INITIAL_ANSWERS,
+      ...next,
+      step_1: { ...INITIAL_ANSWERS.step_1, ...next.step_1 },
+      step_2: { ...INITIAL_ANSWERS.step_2, ...next.step_2 },
+      step_3: { ...INITIAL_ANSWERS.step_3, ...next.step_3 },
+    });
+  }, []);
+
+  /** Tandai jawaban sudah tersimpan ke database (sidik jari dari lib/assessment-mapping.js). */
+  const markSaved = useCallback((key) => {
+    write({ ...read(), saved_key: key });
+  }, []);
+
+  return { answers, updateStep, reachStep, reset, replaceAll, markSaved };
 }

@@ -1,14 +1,14 @@
 import Link from "next/link";
-import { ArrowRight, Briefcase, CalendarClock, HeartHandshake, MapPin, Wallet } from "lucide-react";
+import { ArrowRight, Briefcase, CalendarClock, MapPin, Wallet } from "lucide-react";
 
 import { CompanyAvatar } from "@/components/ui/company-avatar";
-import { HIGHLIGHT_BENEFITS, employmentLabel, experienceLabel, formatDate } from "@/lib/job-catalog";
+import { FacilityBadges } from "@/components/jobs/facility-badges";
+import { employmentLabel, experienceLabel, formatDate } from "@/lib/job-catalog";
 import { loginTo } from "@/lib/routes";
 
 /** Kartu lowongan umum: tanpa skor kecocokan (itu khusus halaman rekomendasi). */
-export function CatalogJobCard({ job }) {
+export function CatalogJobCard({ job, selectedFacilities = [] }) {
   const place = job.mode === "Remote" ? "Remote" : `${job.city} • ${job.mode}`;
-  const benefits = (job.benefits ?? []).filter((b) => HIGHLIGHT_BENEFITS.includes(b));
   const detailHref = loginTo(`/recommended-jobs/${job.id}`);
 
   return (
@@ -65,15 +65,7 @@ export function CatalogJobCard({ job }) {
         ) : null}
       </ul>
 
-      {benefits.length > 0 ? (
-        <ul aria-label="Dukungan untuk pekerja" className="mt-3 flex flex-wrap gap-2">
-          {benefits.map((b) => (
-            <li key={b} className="inline-flex items-center gap-1 rounded-full bg-pink-50 px-3 py-1 text-xs font-semibold text-ai">
-              <HeartHandshake className="h-3.5 w-3.5" aria-hidden /> {b}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <FacilityBadges benefits={job.benefits} selected={selectedFacilities} />
 
       <span className="mt-auto inline-flex items-center gap-1 pt-5 text-sm font-semibold text-brand" aria-hidden>
         Lihat detail <ArrowRight className="h-4 w-4" />
