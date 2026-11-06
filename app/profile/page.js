@@ -44,8 +44,8 @@ import {
   editProfileHeader,
   generateResume,
   parseLocation,
-  saveProfile,
 } from "./actions";
+import { loadMyProfile, saveMyProfile } from "./data-actions";
 
 import { LinkedinIcon } from "@/components/icons";
 import { Footer } from "@/components/layout/footer";
@@ -273,10 +273,11 @@ function CheckboxChips({ field, defaultValue = [] }) {
 }
 
 export default function ProfilePage() {
-  // `saved` = data yang sudah disimpan, `draft` = data yang sedang diubah di layar.
-  // Sementara disimpan di state (hilang saat halaman dimuat ulang), nanti diganti Supabase.
-  const [saved, setSaved] = useState(PROFILE);
-  const [draft, setDraft] = useState(PROFILE);
+  // `saved` = data terakhir di database, `draft` = data yang sedang diubah di layar.
+  // null = masih dimuat dari Supabase. PROFILE (tokoh contoh) hanya dipakai bila Supabase belum dikonfigurasi.
+  const [saved, setSaved] = useState(null);
+  const [draft, setDraft] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [dialog, setDialog] = useState(null);
   const [toast, setToast] = useState("");
   const [resumes, setResumes] = useState([]);
@@ -287,6 +288,20 @@ export default function ProfilePage() {
 
   // Tombol Simpan Perubahan hanya aktif kalau ada tambah / edit / hapus yang belum disimpan.
   const hasChanges = JSON.stringify(draft) !== JSON.stringify(saved);
+
+  // Muat profil user yang sedang masuk dari Supabase.
+  useEffect(() => {
+    let alive = true;
+    loadMyProfile().then((loaded) => {
+      if (!alive) return;
+      const data = loaded ?? PROFILE;
+      setSaved(data);
+      setDraft(data);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Buka / tutup dialog bawaan browser mengikuti state `dialog`.
   useEffect(() => {
@@ -327,9 +342,17 @@ export default function ProfilePage() {
     setDraft((current) => deleteAction(current, id));
   }
 
-  function handleSave() {
-    if (!hasChanges) return;
-    setSaved(saveProfile(draft));
+  async function handleSave() {
+    if (!hasChanges || saving) return;
+    setSaving(true);
+    const res = await saveMyProfile(draft);
+    setSaving(false);
+    if (!res.ok) {
+      setToast(res.error);
+      return;
+    }
+    setSaved(res.profile);
+    setDraft(res.profile);
     setToast("Perubahan profil tersimpan.");
   }
 
@@ -359,6 +382,18 @@ export default function ProfilePage() {
   }
 
   const form = dialog ? FORMS[dialog.type] : null;
+
+  if (!p) {
+    return (
+      <main className="flex-1 bg-surface" aria-busy="true">
+        <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-8 md:px-6 md:py-10 xl:px-8">
+          <p className="sr-only">Memuat profil…</p>
+          <div className="h-48 animate-pulse rounded-3xl bg-white motion-reduce:animate-none" />
+          <div className="h-72 animate-pulse rounded-3xl bg-white motion-reduce:animate-none" />
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex-1 bg-surface">
@@ -411,7 +446,7 @@ export default function ProfilePage() {
             >
               <div className="h-full rounded-full bg-brand" style={{ width: `${p.completeness}%` }} />
             </div>
-            <p className="mt-2 text-sm text-ink/70">{PROFILE_REMAINING || "Profil Anda sudah lengkap"}</p>
+            <p className="mt-2 text-sm text-ink/70">{(p.remaining ?? PROFILE_REMAINING) || "Profil Anda sudah lengkap"}</p>
           </div>
         </section>
 
@@ -917,10 +952,10 @@ export default function ProfilePage() {
             <Button
               type="button"
               onClick={handleSave}
-              disabled={!hasChanges}
+              disabled={!hasChanges || saving}
               className="h-12 rounded-full bg-brand px-6 text-sm font-semibold hover:bg-brand/90"
             >
-              Simpan Perubahan
+              {saving ? "Menyimpan…" : "Simpan Perubahan"}
             </Button>
           </div>
         </section>
