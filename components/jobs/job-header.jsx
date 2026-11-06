@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useHasApplied } from "@/lib/demo-history";
 import { AppliedBadge } from "@/components/ui/applied-badge";
 import { CompanyAvatar } from "@/components/ui/company-avatar";
+import { FacilityBadges } from "@/components/jobs/facility-badges";
 
 /** Cincin persentase kecil (sisi kanan header). */
 function MatchRing({ value, size = 44, strokeWidth = 3 }) {
@@ -103,6 +104,9 @@ export function JobHeader({ job }) {
           <MatchRing value={job.matchPercent} />
         </div>
       </div>
+
+      {/* Fasilitas ramah perempuan terlihat tanpa menggulir; lebar penuh agar tidak sempit di mobile */}
+      <FacilityBadges benefits={job.facilities} max={job.facilities.length} className="mt-4" />
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-surface px-2.5 py-0.5 text-xs font-medium text-ink/75 ring-1 ring-inset ring-line">
