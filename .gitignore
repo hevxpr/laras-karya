@@ -40,3 +40,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+#data-import
+scripts/data-import/data/
+
+#script
+scripts/

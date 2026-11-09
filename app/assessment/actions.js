@@ -3,12 +3,14 @@
 import {
   fromAssessmentAnswers,
   skillCodesFromLabels,
+  skillLabelsFromCodes,
   toAssessmentAnswers,
   toEducationRow,
   toProfileUpdate,
 } from "@/lib/assessment-mapping";
-import { SKILL_OPTIONS } from "@/lib/assessment-options";
+import { LIMITS, SKILL_OPTIONS } from "@/lib/assessment-options";
 import { isValid, validateStep1, validateStep2, validateStep3 } from "@/lib/assessment-validation";
+import { extractSkillCodes } from "@/lib/gemini-skills";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 
@@ -109,4 +111,24 @@ export async function loadMyAssessment() {
     .limit(1)
     .maybeSingle();
   return fromAssessmentAnswers(data?.answers);
+}
+
+/**
+ * Saran keahlian dari cerita pengalaman (langkah 2), ditampilkan di langkah 3.
+ * Boleh dipanggil tamu (asesmen bisa diisi sebelum daftar), jadi panjang cerita dibatasi sama seperti form.
+ * TODO: tambahkan pembatasan frekuensi (rate limit) per IP/user sebelum rilis publik, karena tiap panggilan berbiaya.
+ * Hasil: { ok: true, labels } | { ok: false, error: "invalid" | "unavailable" | "ai" }
+ */
+export async function suggestSkillsFromStory(story) {
+  const text = String(story ?? "").trim();
+  if (text.length < LIMITS.storyMin || text.length > LIMITS.storyMax) return { ok: false, error: "invalid" };
+  if (!process.env.GEMINI_API_KEY) return { ok: false, error: "unavailable" };
+  try {
+    const codes = await extractSkillCodes(text);
+    console.info(`[suggestSkillsFromStory] ${codes.length} keahlian:`, codes.join(", ") || "(kosong)");
+    return { ok: true, labels: skillLabelsFromCodes(codes) };
+  } catch (error) {
+    console.error("[suggestSkillsFromStory]", error?.message ?? error);
+    return { ok: false, error: "ai" };
+  }
 }

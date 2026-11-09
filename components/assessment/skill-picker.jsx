@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, Sparkles, X } from "lucide-react";
 
 import { LIMITS } from "@/lib/assessment-options";
 
@@ -10,7 +10,7 @@ import { LIMITS } from "@/lib/assessment-options";
  * Pengguna HANYA bisa memilih dari `options` (katalog keahlian), jadi nama keahlian selalu
  * sama dengan yang dipakai lowongan dan pelatihan. Tidak ada keahlian ketik bebas.
  */
-export function SkillPicker({ options, values, onChange, suggestions = [] }) {
+export function SkillPicker({ options, values, onChange, suggestions = [], aiSuggestions = [], aiLoading = false, aiFailed = false, aiEmpty = false }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const inputId = useId();
@@ -23,7 +23,10 @@ export function SkillPicker({ options, values, onChange, suggestions = [] }) {
 
   const available = options.filter((o) => !chosen.has(o.toLowerCase()));
   const matches = typed ? available.filter((o) => o.toLowerCase().includes(typed)) : available;
-  const freshSuggestions = suggestions.filter((s) => !chosen.has(s.toLowerCase())).slice(0, 5);
+  const freshAi = aiSuggestions.filter((s) => !chosen.has(s.toLowerCase()));
+  const aiSet = new Set(aiSuggestions.map((s) => s.toLowerCase()));
+  // Saran sektor tidak mengulang yang sudah disarankan AI.
+  const freshSuggestions = suggestions.filter((s) => !chosen.has(s.toLowerCase()) && !aiSet.has(s.toLowerCase())).slice(0, 5);
 
   const add = (skill) => {
     if (!chosen.has(skill.toLowerCase()) && !isFull) onChange([...values, skill]);
@@ -106,6 +109,45 @@ export function SkillPicker({ options, values, onChange, suggestions = [] }) {
           ? `Anda sudah memilih ${LIMITS.maxSkills} keahlian (batas maksimal). Hapus salah satu untuk mengganti.`
           : "Pilih dari daftar agar nama keahlian sama dengan yang dipakai lowongan."}
       </p>
+
+      {aiLoading ? (
+        <p className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-ai" role="status">
+          <Sparkles className="size-3.5 motion-safe:animate-pulse" aria-hidden="true" />
+          AI sedang membaca cerita pengalaman Anda…
+        </p>
+      ) : null}
+      {freshAi.length > 0 ? (
+        <div className="mt-3">
+          <p className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold text-ai">
+            <Sparkles className="size-3.5" aria-hidden="true" />
+            Disarankan AI dari cerita pengalaman Anda:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {freshAi.map((skill) => (
+              <button
+                key={skill}
+                type="button"
+                onClick={() => add(skill)}
+                disabled={isFull}
+                className="inline-flex items-center gap-1 rounded-full border border-ai/40 bg-pink-50 px-3 py-1.5 text-[13px] hover:border-ai disabled:opacity-50"
+              >
+                <Plus className="size-3.5" aria-hidden="true" />
+                {skill}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {aiEmpty ? (
+        <p className="mt-3 text-xs text-ink/70" role="status">
+          AI belum menemukan keahlian di daftar yang cocok dengan cerita Anda. Anda bisa memilih secara manual.
+        </p>
+      ) : null}
+      {aiFailed ? (
+        <p className="mt-3 text-xs text-ink/70" role="status">
+          Saran dari cerita belum tersedia. Anda tetap bisa memilih keahlian secara manual.
+        </p>
+      ) : null}
 
       {freshSuggestions.length > 0 ? (
         <div className="mt-3">
