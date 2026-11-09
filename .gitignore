@@ -43,3 +43,6 @@ next-env.d.ts
 
 #data-import
 scripts/data-import/data/
+
+#script
+scripts/
