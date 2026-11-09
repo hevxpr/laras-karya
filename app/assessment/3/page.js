@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, House, Repeat } from "lucide-react";
 
+import { suggestSkillsFromStory } from "@/app/assessment/actions";
 import { AiHint } from "@/components/assessment/ai-hint";
 import { AssessmentCard } from "@/components/assessment/assessment-card";
 import { ChipMultiSelect } from "@/components/assessment/chip-multi-select";
@@ -15,6 +16,7 @@ import { StepNav } from "@/components/assessment/step-nav";
 import { useAssessment } from "@/context/assessment-store";
 import {
   EXPERIENCE_LEVELS,
+  LIMITS,
   SKILL_OPTIONS,
   MOCK_SUGGESTED_SKILLS_BY_SECTOR,
   SECTORS,
@@ -28,7 +30,7 @@ const WORK_OPTIONS = WORK_ARRANGEMENTS.map((option) => ({ ...option, icon: WORK_
 /** Langkah 3 – Preferensi & Pengalaman Karier (dokumen bagian 2.3). */
 export default function AssessmentStep3Page() {
   const router = useRouter();
-  const { answers, updateStep, reachStep } = useAssessment();
+  const { answers, updateStep, reachStep, setSuggestions } = useAssessment();
   const step = answers.step_3;
   const errors = validateStep3(step, SKILL_OPTIONS);
   const canContinue = isValid(errors);
@@ -44,6 +46,32 @@ export default function AssessmentStep3Page() {
 
   // Saran keahlian dari sektor yang dipilih, tanpa duplikat (nanti: getSuggestedSkills()).
   const suggestions = [...new Set(step.interest_sectors.flatMap((code) => MOCK_SUGGESTED_SKILLS_BY_SECTOR[code] ?? []))];
+
+  // Saran keahlian dari cerita pengalaman (Gemini). Hasilnya disimpan di store per cerita, jadi tidak
+  // dipanggil ulang selama ceritanya sama. Jika gagal, form tetap jalan dengan saran berbasis sektor.
+  const story = answers.step_2.experience_story.trim();
+  const aiLabels = answers.ai_suggestions?.story_key === story ? answers.ai_suggestions.labels : null;
+  const canAsk = story.length >= LIMITS.storyMin && story.length <= LIMITS.storyMax;
+  const [failedFor, setFailedFor] = useState(null); // cerita yang gagal dianalisis (tidak dicoba ulang otomatis)
+  const aiLoading = canAsk && aiLabels === null && failedFor !== story;
+  const aiFailed = canAsk && aiLabels === null && failedFor === story;
+
+  useEffect(() => {
+    if (!aiLoading) return undefined;
+    let cancelled = false;
+    suggestSkillsFromStory(story)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.ok) setSuggestions({ story_key: story, labels: res.labels });
+        else setFailedFor(story);
+      })
+      .catch(() => {
+        if (!cancelled) setFailedFor(story);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [aiLoading, story, setSuggestions]);
 
   const next = () => {
     reachStep(4);
@@ -89,6 +117,10 @@ export default function AssessmentStep3Page() {
           values={step.skills}
           onChange={(values) => update("skills", values)}
           suggestions={suggestions}
+          aiSuggestions={aiLabels ?? []}
+          aiLoading={aiLoading}
+          aiFailed={aiFailed}
+          aiEmpty={aiLabels !== null && aiLabels.length === 0}
         />
       </Field>
 

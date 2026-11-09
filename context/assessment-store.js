@@ -14,6 +14,8 @@ const STORAGE_KEY = "laras-karya:assessment";
 
 export const INITIAL_ANSWERS = {
   step: 1,
+  // Saran keahlian AI dari cerita pengalaman: { story_key, labels }. Hanya cache di browser, tidak ikut disimpan ke database.
+  ai_suggestions: null,
   step_1: { career_situation: null, career_break: null, consent: false },
   step_2: {
     province: "",
@@ -104,5 +106,15 @@ export function useAssessment() {
     write({ ...read(), saved_key: key });
   }, []);
 
-  return { answers, updateStep, reachStep, reset, replaceAll, markSaved };
+  /**
+   * Simpan saran keahlian AI untuk satu cerita. Diabaikan jika cerita sudah berubah saat jawaban Gemini datang,
+   * supaya jawaban lama tidak menimpa yang baru.
+   */
+  const setSuggestions = useCallback((value) => {
+    const current = read();
+    if (current.step_2.experience_story.trim() !== value.story_key) return;
+    write({ ...current, ai_suggestions: value });
+  }, []);
+
+  return { answers, updateStep, reachStep, reset, replaceAll, markSaved, setSuggestions };
 }
