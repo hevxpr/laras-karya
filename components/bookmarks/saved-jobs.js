@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Bookmark, ChevronDown, Sparkles } from "lucide-react";
+import { setJobSaved } from "@/app/bookmarks/actions";
+import { useToast } from "@/context/toast-context";
+import { useDemoMode } from "@/lib/demo-mode";
+import { isUuid } from "@/lib/is-uuid";
 import { SAVED_JOBS } from "@/lib/mock-saved-jobs";
 import SavedJobCard from "./saved-job-card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -15,16 +19,28 @@ const SORTS = [
 
 function sortJobs(list, by) {
   const copy = [...list];
-  if (by === "cocok") return copy.sort((a, b) => b.match - a.match);
+  if (by === "cocok") return copy.sort((a, b) => (b.match ?? -1) - (a.match ?? -1));
   if (by === "nama")
     return copy.sort((a, b) => a.title.localeCompare(b.title, "id"));
   return copy.sort((a, b) => b.savedAt.localeCompare(a.savedAt));
 }
 
-export default function SavedJobs() {
-  const [items, setItems] = useState(SAVED_JOBS);
+/**
+ * @param {{ initialJobs?: object[] }} props
+ *   initialJobs = lowongan tersimpan dari database (lib/saved-jobs-db.js). Bila kosong dan mode demo
+ *   menyala, daftar contoh (lib/mock-saved-jobs.js) yang ditampilkan, supaya alur demo tetap jalan.
+ */
+export default function SavedJobs({ initialJobs = [] }) {
+  const demo = useDemoMode();
+  const { showToast } = useToast();
+  const base = useMemo(
+    () => (initialJobs.length > 0 ? initialJobs : demo ? SAVED_JOBS : []),
+    [initialJobs, demo],
+  );
+  const [removedIds, setRemovedIds] = useState(() => new Set()); // lowongan yang dibatalkan simpan di layar ini
+  const items = useMemo(() => base.filter((j) => !removedIds.has(j.id)), [base, removedIds]);
   const [sortBy, setSortBy] = useState("terbaru");
-  const [removed, setRemoved] = useState(null); // { job, index } untuk tombol "Urungkan"
+  const [removed, setRemoved] = useState(null); // { job } untuk tombol "Urungkan"
 
   // Pemberitahuan "Urungkan" hilang sendiri setelah 8 detik.
   useEffect(() => {
@@ -35,21 +51,42 @@ export default function SavedJobs() {
 
   const sorted = useMemo(() => sortJobs(items, sortBy), [items, sortBy]);
 
-  function remove(id) {
-    const index = items.findIndex((j) => j.id === id);
-    if (index === -1) return;
-    setRemoved({ job: items[index], index });
-    setItems(items.filter((j) => j.id !== id));
-  }
-
-  function undo() {
-    if (!removed) return;
-    setItems((prev) => {
-      const next = [...prev];
-      next.splice(removed.index, 0, removed.job);
+  const hide = (id) => setRemovedIds((prev) => new Set(prev).add(id));
+  const unhide = (id) =>
+    setRemovedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
       return next;
     });
+  const failed = () =>
+    showToast({ message: "Perubahan belum tersimpan. Coba lagi.", icon: "alert", role: "alert", tone: "dark" });
+
+  // Layar berubah dulu supaya terasa cepat; bila database menolak, dikembalikan. Id angka = data contoh (hanya di layar).
+  async function remove(id) {
+    const job = items.find((j) => j.id === id);
+    if (!job) return;
+    hide(id);
+    setRemoved({ job });
+    if (!isUuid(id)) return;
+    const res = await setJobSaved(id, false);
+    if (!res.ok) {
+      unhide(id);
+      setRemoved(null);
+      failed();
+    }
+  }
+
+  async function undo() {
+    if (!removed) return;
+    const { job } = removed;
+    unhide(job.id);
     setRemoved(null);
+    if (!isUuid(job.id)) return;
+    const res = await setJobSaved(job.id, true);
+    if (!res.ok) {
+      hide(job.id);
+      failed();
+    }
   }
 
   return (

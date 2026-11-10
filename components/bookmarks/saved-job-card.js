@@ -16,11 +16,13 @@ import { CompanyAvatar } from "@/components/ui/company-avatar";
 
 export default function SavedJobCard({ job, onRemove }) {
   const open = job.status === "dibuka";
-  const place = job.mode === "Remote" ? "Remote" : `${job.mode} — ${job.city}`;
+  const place =
+    job.mode === "Remote" ? "Remote" : [job.mode, job.city].filter(Boolean).join(" — ") || "Lokasi belum dicantumkan";
   // Lowongan yang sudah ditutup dibuat lebih pudar, tapi tombol simpan dan status tetap jelas.
   const fade = open ? "" : "opacity-70";
   // Badge "Sudah Dilamar" tampil untuk lowongan dibuka maupun ditutup.
-  const alreadyApplied = hasApplied(job.id);
+  // Data dari database membawa `applied`; data contoh dicek lewat daftar lamaran contoh.
+  const alreadyApplied = job.applied ?? hasApplied(job.id);
 
   return (
     <article className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6">
@@ -29,9 +31,11 @@ export default function SavedJobCard({ job, onRemove }) {
           <span className="rounded-full bg-brand-light px-3 py-1 text-xs font-medium text-brand">
             {job.sector}
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-ai/10 px-3 py-1 text-xs font-semibold text-ai">
-            <Sparkles className="h-3 w-3" aria-hidden /> {job.match}% Cocok
-          </span>
+          {job.match != null && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-ai/10 px-3 py-1 text-xs font-semibold text-ai">
+              <Sparkles className="h-3 w-3" aria-hidden /> {job.match}% Cocok
+            </span>
+          )}
         </div>
         <button
           type="button"
