@@ -41,8 +41,13 @@ export async function saveAssessment(answers) {
     return { ok: false, error: "db", detail: step };
   };
 
-  // 1) Profil
-  const { error: profileError } = await supabase.from("profiles").update(toProfileUpdate(answers)).eq("id", user.id);
+  // 1) Profil (bio diisi dari cerita pengalaman bila masih kosong)
+  const { data: current, error: bioReadError } = await supabase.from("profiles").select("bio").eq("id", user.id).maybeSingle();
+  if (bioReadError) return fail("profiles", bioReadError);
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update(toProfileUpdate(answers, { currentBio: current?.bio }))
+    .eq("id", user.id);
   if (profileError) return fail("profiles", profileError);
 
   // 2) Pendidikan: perbarui baris yang sama (institusi + jenjang), atau tambah baris baru
