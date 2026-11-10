@@ -44,9 +44,9 @@ const GAP_TEXT = {
 };
 
 const LEVEL_BADGE = {
-  Beginner: "bg-brand-light text-brand",
-  Intermediate: "bg-amber-100 text-amber-700",
-  Advanced: "bg-red-100 text-red-700",
+  Pemula: "bg-brand-light text-brand",
+  Menengah: "bg-amber-100 text-amber-700",
+  Lanjutan: "bg-red-100 text-red-700",
 };
 
 function LoadingView() {
@@ -486,14 +486,14 @@ const handleComplete = (courseId) => {
                               </Button>
                             ) : (
                               <Button
-                                href={course.url}
+                                href="https://www.udemy.com/"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 size="lg"
                                 className="w-full bg-brand hover:bg-brand/90"
                                 onClick={() => handleStart(course.id)}
                               >
-                                Daftar di {course.provider}
+                                Daftar di Udemy
                                 <ExternalLink className="size-4" aria-hidden="true" />
                               </Button>
                             )}
