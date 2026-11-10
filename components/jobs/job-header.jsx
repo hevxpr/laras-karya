@@ -12,6 +12,19 @@ import { FacilityBadges } from "@/components/jobs/facility-badges";
 
 /** Cincin persentase kecil (sisi kanan header). */
 function MatchRing({ value, size = 44, strokeWidth = 3 }) {
+  // Skor belum dihitung (user belum menyelesaikan asesmen / rekomendasi belum dibuat)
+  if (value == null) {
+    return (
+      <div
+        className="grid shrink-0 place-items-center rounded-full border-2 border-dashed border-mint-line text-[11px] font-bold text-ink/50"
+        style={{ width: size, height: size }}
+        role="img"
+        aria-label="Kecocokan belum dihitung"
+      >
+        –
+      </div>
+    );
+  }
   const r = (size - strokeWidth) / 2;
   const c = 2 * Math.PI * r;
   return (

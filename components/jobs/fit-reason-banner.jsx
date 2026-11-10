@@ -24,7 +24,9 @@ export function FitReasonBanner({ job }) {
     perks: job.perks ?? [],
     owned: job.skills.filter((s) => s.status === "dimiliki").map((s) => s.name),
     missing: job.skills.filter((s) => s.status !== "dimiliki").map((s) => s.name),
+    viewer: job.viewer ?? null,
   });
+  if (insights.length === 0) return null;
   const points = insights.filter((i) => i.tone !== "next");
   const next = insights.find((i) => i.tone === "next");
 
@@ -42,7 +44,9 @@ export function FitReasonBanner({ job }) {
         </h2>
       </div>
       <p className="mt-2 text-xs text-ink/70">
-        Tingkat kecocokan {matchLevel(job.matchPercent)} ({job.matchPercent}%), berdasarkan profil dan hasil asesmen Anda.
+        {job.matchPercent == null
+          ? "Skor kecocokan akan muncul setelah asesmen selesai dan rekomendasi dihitung."
+          : `Tingkat kecocokan ${matchLevel(job.matchPercent)} (${job.matchPercent}%), berdasarkan profil dan hasil asesmen Anda.`}
       </p>
 
       <ul className="mt-3 space-y-3">

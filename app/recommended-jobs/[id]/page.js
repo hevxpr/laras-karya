@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 
 import { FitReasonBanner } from "@/components/jobs/fit-reason-banner";
@@ -11,6 +12,10 @@ import { MobileApplyBar } from "@/components/jobs/mobile-apply-bar";
 //import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { countMissingSkills, getJobDetail } from "@/lib/job-detail-data";
+import { fetchJobDetail } from "@/lib/job-detail-db";
+import { isUuid } from "@/lib/job-detail-mapping";
+import { loginTo } from "@/lib/routes";
+import { getCurrentUser } from "@/lib/session";
 
 /*
   Metadata statis. generateMetadata yang membaca `params` dihapus karena
@@ -42,13 +47,28 @@ function JobDetailSkeleton() {
 }
 
 /**
+ * Id UUID = lowongan dari database Supabase (wajib masuk, karena skor dan keahlian milik user).
+ * Id angka (1–15) = data contoh untuk demo, tetap berjalan seperti sebelumnya.
+ */
+async function loadJob(id) {
+  if (!isUuid(id)) return getJobDetail(id);
+
+  const user = await getCurrentUser();
+  if (!user) redirect(loginTo(`/recommended-jobs/${id}`));
+
+  const job = await fetchJobDetail(id, user);
+  if (!job) notFound();
+  return job;
+}
+
+/**
  * Bagian yang membaca `params`. Dipisah dan dibungkus <Suspense> di halaman,
  * sehingga `await params` tidak lagi memblokir prerender (aturan Next.js 16).
  * @param {{ params: Promise<{ id: string }> }} props
  */
 async function JobDetailContent({ params }) {
   const { id } = await params;
-  const job = getJobDetail(id);
+  const job = await loadJob(id);
 
   return (
     <>

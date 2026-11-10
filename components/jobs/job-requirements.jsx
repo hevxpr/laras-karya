@@ -49,17 +49,21 @@ export function JobRequirements({ job }) {
         )}
 
         <h3 className="mt-5 text-[13px] font-semibold text-ink">Benefit umum</h3>
-        <ul className="mt-2 flex flex-wrap gap-2">
-          {job.benefits.map((b) => (
-            <li
-              key={b.id}
-              className="inline-flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 text-xs text-ink/80 ring-1 ring-inset ring-line"
-            >
-              <Check className="size-3 text-brand" aria-hidden="true" />
-              {b.label}
-            </li>
-          ))}
-        </ul>
+        {job.benefits.length > 0 ? (
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {job.benefits.map((b) => (
+              <li
+                key={b.id}
+                className="inline-flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 text-xs text-ink/80 ring-1 ring-inset ring-line"
+              >
+                <Check className="size-3 text-brand" aria-hidden="true" />
+                {b.label}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-1.5 text-[13px] text-ink/70">Perusahaan belum mencantumkan benefit lain.</p>
+        )}
       </Section>
     </>
   );
