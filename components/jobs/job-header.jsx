@@ -5,6 +5,10 @@ import { Bookmark, MapPin } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+import { setJobSaved } from "@/app/bookmarks/actions";
+import { useToast } from "@/context/toast-context";
+import { isUuid } from "@/lib/is-uuid";
+
 import { useHasApplied } from "@/lib/demo-history";
 import { AppliedBadge } from "@/components/ui/applied-badge";
 import { CompanyAvatar } from "@/components/ui/company-avatar";
@@ -67,8 +71,27 @@ function MatchRing({ value, size = 44, strokeWidth = 3 }) {
  * @param {{ job: import("@/lib/job-detail-data").JobDetail }} props
  */
 export function JobHeader({ job }) {
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState(Boolean(job.saved));
+  const [busy, setBusy] = useState(false);
+  const { showToast } = useToast();
   const applied = useHasApplied(job.id);
+
+  // Lowongan dari database disimpan ke saved_jobs; data contoh (id angka) hanya berubah di layar.
+  async function toggleSaved() {
+    if (busy) return;
+    const next = !saved;
+    setSaved(next);
+    if (!isUuid(job.id)) return;
+    setBusy(true);
+    const res = await setJobSaved(job.id, next);
+    setBusy(false);
+    if (!res.ok) {
+      setSaved(!next);
+      showToast({ message: "Belum bisa menyimpan lowongan. Coba lagi.", icon: "alert", role: "alert", tone: "dark" });
+    } else if (next) {
+      showToast({ message: "Lowongan disimpan.", action: { label: "Lihat tersimpan", href: "/bookmarks" } });
+    }
+  }
 
   return (
     <header className="rounded-xl bg-white p-5 shadow-sm">
@@ -97,7 +120,8 @@ export function JobHeader({ job }) {
         <div className="flex shrink-0 items-center gap-3">
           <button
             type="button"
-            onClick={() => setSaved((v) => !v)}
+            onClick={toggleSaved}
+            disabled={busy}
             aria-pressed={saved}
             aria-label={
               saved ? "Hapus dari lowongan tersimpan" : "Simpan lowongan"
