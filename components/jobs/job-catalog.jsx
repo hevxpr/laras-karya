@@ -11,14 +11,11 @@ import Pagination from "@/components/jobs/pagination";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SearchBar } from "@/components/ui/search-bar";
 import {
-  CATALOG_JOBS,
-  CITY_OPTIONS,
   EMPLOYMENT_TYPES,
   EXPERIENCE_LEVELS,
   FACILITIES,
-  MODE_OPTIONS,
-  SECTOR_OPTIONS,
   SORT_OPTIONS,
+  getFilterOptions,
   hasAllFacilities,
   sortJobs,
 } from "@/lib/job-catalog";
@@ -65,7 +62,7 @@ function FilterSelect({ id, label, value, onChange, options, allLabel, icon: Ico
  * Pemilih kota di baris utama, sejajar kotak pencarian (pasangan "apa" + "di mana").
  * Tinggi dan bentuk sama dengan kotak pencarian; label tetap ada untuk pembaca layar.
  */
-function CityPicker({ value, onChange }) {
+function CityPicker({ value, onChange, cities }) {
   return (
     <div className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
       <label htmlFor="f-city" className="sr-only">
@@ -84,7 +81,7 @@ function CityPicker({ value, onChange }) {
         }`}
       >
         <option value={ALL}>Semua kota</option>
-        {CITY_OPTIONS.map((c) => (
+        {cities.map((c) => (
           <option key={c} value={c}>
             {c}
           </option>
@@ -129,11 +126,11 @@ function AssessmentInvite() {
 }
 
 /** Membaca ?q= dari URL; dibungkus <Suspense> di halaman. */
-export function JobCatalogFromUrl() {
-  return <JobCatalog initialQuery={useSearchParams().get("q") ?? ""} />;
+export function JobCatalogFromUrl({ jobs }) {
+  return <JobCatalog jobs={jobs} initialQuery={useSearchParams().get("q") ?? ""} />;
 }
 
-export default function JobCatalog({ initialQuery = "" }) {
+export default function JobCatalog({ jobs = [], initialQuery = "" }) {
   const [query, setQuery] = useState(initialQuery);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [sort, setSort] = useState("newest");
@@ -142,11 +139,12 @@ export default function JobCatalog({ initialQuery = "" }) {
   const listRef = useRef(null);
   const urlTimer = useRef(null);
   useEffect(() => () => clearTimeout(urlTimer.current), []);
+  const { sectors, cities, modes } = useMemo(() => getFilterOptions(jobs), [jobs]);
 
   // Lowongan yang lolos pencarian dan semua filter kecuali fasilitas (dasar untuk angka di chip fasilitas).
   const baseJobs = useMemo(
     () =>
-      CATALOG_JOBS.filter(
+      jobs.filter(
         (j) =>
           matchesQuery(jobSearchFields(j), query) &&
           (!filters.sector || j.sector === filters.sector) &&
@@ -155,7 +153,7 @@ export default function JobCatalog({ initialQuery = "" }) {
           (!filters.experience || j.experienceLevel === filters.experience) &&
           (!filters.type || j.employmentType === filters.type),
       ),
-    [query, filters.sector, filters.mode, filters.city, filters.experience, filters.type],
+    [jobs, query, filters.sector, filters.mode, filters.city, filters.experience, filters.type],
   );
 
   const results = useMemo(
@@ -226,7 +224,7 @@ export default function JobCatalog({ initialQuery = "" }) {
             className="flex-1"
           />
           <div className="flex items-center gap-3">
-            <CityPicker value={filters.city} onChange={changeFilter("city")} />
+            <CityPicker value={filters.city} onChange={changeFilter("city")} cities={cities} />
             <button
               type="button"
               onClick={() => setShowFilters((v) => !v)}
@@ -246,8 +244,8 @@ export default function JobCatalog({ initialQuery = "" }) {
           id="job-filters"
           className={`mt-4 grid grid-cols-2 gap-3 md:grid-cols-4 ${showFilters ? "" : "max-sm:hidden"}`}
         >
-          <FilterSelect id="f-sector" label="Sektor" value={filters.sector} onChange={changeFilter("sector")} options={SECTOR_OPTIONS} allLabel="Semua sektor" />
-          <FilterSelect id="f-mode" label="Pola kerja" value={filters.mode} onChange={changeFilter("mode")} options={MODE_OPTIONS} allLabel="Semua pola" />
+          <FilterSelect id="f-sector" label="Sektor" value={filters.sector} onChange={changeFilter("sector")} options={sectors} allLabel="Semua sektor" />
+          <FilterSelect id="f-mode" label="Pola kerja" value={filters.mode} onChange={changeFilter("mode")} options={modes} allLabel="Semua pola" />
           <FilterSelect id="f-exp" label="Pengalaman" value={filters.experience} onChange={changeFilter("experience")} options={EXPERIENCE_LEVELS} allLabel="Semua tingkat" />
           <FilterSelect id="f-type" label="Jenis pekerjaan" value={filters.type} onChange={changeFilter("type")} options={EMPLOYMENT_TYPES} allLabel="Semua jenis" />
         </div>
