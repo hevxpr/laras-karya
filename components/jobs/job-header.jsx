@@ -138,7 +138,8 @@ export function JobHeader({ job }) {
               aria-hidden="true"
             />
           </button>
-          <MatchRing value={job.matchPercent} />
+          {/* Skor belum ada: cincin kosong disembunyikan (pesannya sudah ada di banner dan kartu hijau). */}
+          {job.matchPercent != null && <MatchRing value={job.matchPercent} />}
         </div>
       </div>
 

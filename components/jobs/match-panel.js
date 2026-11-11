@@ -95,7 +95,7 @@ export default function MatchPanel({ job }) {
         <div>
           <p className="font-bold text-ink">Tingkat kecocokan</p>
           <p className="text-xs text-slate-600">
-            Dihitung dari tujuh komponen: keahlian, sektor, pengalaman, pola kerja, lokasi, pendidikan, dan benefit.
+            Dihitung dari enam komponen: keahlian, sektor, pengalaman, pola kerja, pendidikan, dan lokasi.
           </p>
         </div>
       </div>
