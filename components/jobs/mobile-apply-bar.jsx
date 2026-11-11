@@ -12,7 +12,7 @@ import { useHasApplied } from "@/lib/demo-history";
  * @param {{ job: import("@/lib/job-detail-data").JobDetail }} props
  */
 export function MobileApplyBar({ job }) {
-  const applied = useHasApplied(job.id);
+  const applied = useHasApplied(job.id, job.applied);
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 backdrop-blur lg:hidden">

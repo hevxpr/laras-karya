@@ -74,7 +74,7 @@ export function JobHeader({ job }) {
   const [saved, setSaved] = useState(Boolean(job.saved));
   const [busy, setBusy] = useState(false);
   const { showToast } = useToast();
-  const applied = useHasApplied(job.id);
+  const applied = useHasApplied(job.id, job.applied);
 
   // Lowongan dari database disimpan ke saved_jobs; data contoh (id angka) hanya berubah di layar.
   async function toggleSaved() {

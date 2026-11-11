@@ -170,7 +170,19 @@ export function ApplicationHistory({ applications, filter: filterProp, onFilterC
           ))}
         </ul>
       ) : visible.length === 0 ? (
-        <p className="rounded-lg bg-surface px-4 py-10 text-center text-sm text-ink/70">Belum ada lamaran dengan status ini.</p>
+        <p className="rounded-lg bg-surface px-4 py-10 text-center text-sm text-ink/70">
+          {applications.length === 0 ? (
+            <>
+              Belum ada lamaran.{" "}
+              <Link href="/recommended-jobs" className="font-semibold text-brand underline underline-offset-2">
+                Lihat rekomendasi lowongan
+              </Link>
+              .
+            </>
+          ) : (
+            "Belum ada lamaran dengan status ini."
+          )}
+        </p>
       ) : (
         <ul className="space-y-2.5">
           {visible.map((a) => (

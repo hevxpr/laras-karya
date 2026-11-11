@@ -51,7 +51,7 @@ function GapRow({ skill }) {
  *   planHref: id kartu tujuan tautan "Lihat rencana belajar" (mis. "rencana-belajar"); tanpa ini tautan tidak ditampilkan.
  */
 export function MatchSkillGapCard({ job, planHref }) {
-  const applied = useHasApplied(job.id);
+  const applied = useHasApplied(job.id, job.applied);
 
   const g = groupSkills(job.skills);
   // Lowongan dari database: yang dihitung "perlu dilengkapi" dan masuk tombol pelatihan hanya skill teknis,
