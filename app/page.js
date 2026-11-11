@@ -1,6 +1,8 @@
+import { Suspense } from "react";
+
 import PublicShell from "@/components/layout/public-shell";
 import Hero from "@/components/landing/hero";
-import { Questions, Jobs, CtaBanner } from "@/components/landing/sections";
+import { Questions, Jobs, JobsSkeleton, CtaBanner } from "@/components/landing/sections";
 
 export default function LandingPage() {
   return (
@@ -8,7 +10,9 @@ export default function LandingPage() {
       <main>
         <Hero />
         <Questions />
-        <Jobs />
+        <Suspense fallback={<JobsSkeleton />}>
+          <Jobs />
+        </Suspense>
         <CtaBanner />
       </main>
     </PublicShell>
