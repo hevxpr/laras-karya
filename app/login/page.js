@@ -7,6 +7,7 @@ import { login } from "./actions";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { DemoPrefill } from "@/components/auth/demo-prefill";
 import { AuthError } from "@/components/auth/auth-error";
+import { PasswordInput } from "@/components/auth/password-input";
 import { NextField, NextLink } from "@/components/auth/next-field";
 import { GoogleIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
@@ -86,17 +87,7 @@ export default function LoginPage() {
             <label htmlFor="password" className="mb-2 block text-sm font-semibold text-ink lg:mb-1.5">
               Kata Sandi
             </label>
-            <div className="flex h-12 items-center lg:h-[clamp(2.25rem,5.4vh,3rem)] gap-3 rounded-xl border border-line bg-white px-4 focus-within:border-brand focus-within:ring-3 focus-within:ring-brand/20">
-              <Lock className="size-5 shrink-0 text-ink/60" aria-hidden="true" />
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password" required
-                placeholder="Masukkan kata sandi Anda"
-                className="h-full min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-subtle"
-              />
-            </div>
+            <PasswordInput />
             <div className="mt-1.5 flex justify-end text-sm">
               <Link href="/forgot-password" className="font-semibold text-brand hover:underline">
                 Lupa kata sandi?

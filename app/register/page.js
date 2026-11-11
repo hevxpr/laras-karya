@@ -12,6 +12,7 @@ import { GoogleIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { DEMO_CREDENTIALS } from "@/lib/demo-persona";
 import { cn } from "@/lib/utils";
+import { PasswordInput } from "@/components/auth/password-input";
 
 export const metadata = { title: "Daftar" };
 
@@ -73,17 +74,7 @@ export default function RegisterPage() {
             <label htmlFor="password" className="mb-2 block text-sm font-semibold text-ink lg:mb-1.5">
               Kata Sandi
             </label>
-            <div className="flex h-12 items-center lg:h-[clamp(2.25rem,5.4vh,3rem)] gap-3 rounded-xl border border-line bg-white px-4 focus-within:border-brand focus-within:ring-3 focus-within:ring-brand/20">
-              <Lock className="size-5 shrink-0 text-ink/60" aria-hidden="true" />
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="new-password" required minLength={8} aria-describedby="password-hint"
-                placeholder="Buat kata sandi"
-                className="h-full min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-subtle/80"
-              />
-            </div>
+            <PasswordInput />
             <p id="password-hint" className="mt-1.5 text-sm text-subtle">Minimal 8 karakter, kombinasi huruf dan angka.</p>
           </div>
 
