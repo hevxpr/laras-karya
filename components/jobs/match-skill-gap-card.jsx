@@ -49,25 +49,35 @@ export function MatchSkillGapCard({ job, defaultOpen = false }) {
         <h2 id="match-title" className="text-[13px] font-bold">
           Kecocokan Profil
         </h2>
-        <span className="text-[13px] font-bold">{job.matchPercent}%</span>
+        <span className="text-[13px] font-bold">
+          {job.matchPercent == null ? "Belum dihitung" : `${job.matchPercent}%`}
+        </span>
       </div>
 
-      <div
-        className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/25"
-        role="progressbar"
-        aria-valuenow={job.matchPercent}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label="Kecocokan profil"
-      >
-        <div
-          className="h-full rounded-full bg-white"
-          style={{ width: `${job.matchPercent}%` }}
-        />
-      </div>
-      <p className="mt-2 text-xs text-white/80">
-        Dihitung dari tujuh komponen: keahlian, sektor, pengalaman, pola kerja, lokasi, pendidikan, dan benefit.
-      </p>
+      {job.matchPercent == null ? (
+        <p className="mt-2 text-xs text-white/80">
+          Skor kecocokan muncul setelah asesmen selesai dan rekomendasi dihitung.
+        </p>
+      ) : (
+        <>
+          <div
+            className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/25"
+            role="progressbar"
+            aria-valuenow={job.matchPercent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Kecocokan profil"
+          >
+            <div
+              className="h-full rounded-full bg-white"
+              style={{ width: `${job.matchPercent}%` }}
+            />
+          </div>
+          <p className="mt-2 text-xs text-white/80">
+            Dihitung dari tujuh komponen: keahlian, sektor, pengalaman, pola kerja, lokasi, pendidikan, dan benefit.
+          </p>
+        </>
+      )}
 
       <button
         type="button"
