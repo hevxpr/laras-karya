@@ -25,25 +25,13 @@ const LEARNING_TARGET = {
   ],
 };
 
-// Langkah belajar disusun dari courses.level (Pemula -> Menengah -> Lanjutan).
-// Langkah yang belum punya pelatihan tidak ditampilkan. Pelatihan tanpa level masuk langkah Pemula.
-const LEVEL_STEPS = [
-  {
-    level: "Pemula",
-    title: "Dasar",
-    description: "Mulai dari pelatihan pengantar untuk membangun fondasi pengetahuan keberlanjutan.",
-  },
-  {
-    level: "Menengah",
-    title: "Pendalaman",
-    description: "Perdalam keahlian dengan pelatihan tingkat menengah yang lebih praktis.",
-  },
-  {
-    level: "Lanjutan",
-    title: "Lanjutan",
-    description: "Perkuat kompetensi dengan pelatihan tingkat lanjut yang diakui industri.",
-  },
-];
+// Semua level digabung dalam satu daftar (tanpa langkah). Urutan: unggulan lebih dulu, lalu sort_order,
+// lalu level (Pemula -> Menengah -> Lanjutan), lalu judul.
+const LEVEL_ORDER = ["Pemula", "Menengah", "Lanjutan"];
+const levelRank = (level) => {
+  const i = LEVEL_ORDER.indexOf(level);
+  return i === -1 ? 0 : i; // level kosong / tak dikenal diperlakukan seperti Pemula
+};
 
 // courses.format di database huruf kecil; tampilannya diberi huruf kapital di depan.
 const FORMAT_LABELS = { online: "Online", hybrid: "Hybrid", offline: "Offline" };
@@ -69,23 +57,21 @@ function toCourse(row) {
     duration: row.duration_text ?? "",
     skillTag: row.category ?? null,
     popular: row.is_featured,
+    imageUrl: row.image_url ?? null,
     url: row.url,
   };
 }
 
-function toSteps(rows) {
-  const knownLevels = LEVEL_STEPS.map((s) => s.level);
-  const byLevel = Object.fromEntries(knownLevels.map((level) => [level, []]));
-  for (const row of rows) {
-    const level = knownLevels.includes(row.level) ? row.level : "Pemula";
-    byLevel[level].push(toCourse({ ...row, level }));
-  }
-  return LEVEL_STEPS.filter((s) => byLevel[s.level].length > 0).map((s, index) => ({
-    n: index + 1,
-    title: s.title,
-    description: s.description,
-    courses: byLevel[s.level],
-  }));
+function toCourses(rows) {
+  return [...rows]
+    .sort(
+      (x, y) =>
+        Number(y.is_featured) - Number(x.is_featured) ||
+        (x.sort_order ?? 0) - (y.sort_order ?? 0) ||
+        levelRank(x.level) - levelRank(y.level) ||
+        x.title.localeCompare(y.title, "id")
+    )
+    .map(toCourse);
 }
 
 /**
@@ -110,7 +96,7 @@ export async function getLearningPath() {
 
   const { data: courses, error } = await supabase
     .from("courses")
-    .select("id, title, url, level, provider, category, duration_text, format, is_featured, sort_order")
+    .select("id, title, url, level, provider, category, duration_text, format, image_url, is_featured, sort_order")
     .eq("is_published", true)
     .order("is_featured", { ascending: false })
     .order("sort_order", { ascending: true })
@@ -135,7 +121,7 @@ export async function getLearningPath() {
 
   return {
     target: LEARNING_TARGET,
-    steps: toSteps(courses),
+    courses: toCourses(courses),
     progress: toProgress(progressRows),
   };
 }
