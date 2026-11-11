@@ -10,23 +10,8 @@ import { createClient } from "@/lib/supabase/server";
 //   (lib/learning-path-db.js; urutan pelatihan di lib/course-order.js, titik sambung engine rekomendasi).
 // - Progres user disimpan di tabel user_course_progress. Memakai sesi user (bukan service role),
 //   jadi dijaga RLS: user hanya membaca dan menulis progresnya sendiri.
-// - Target posisi & skill gap tanpa ?job= MASIH contoh (mock) di bawah. Dengan ?job= datanya dari lowongan
-//   sungguhan; pelatihan per skill butuh tabel course_skills terisi.
-
-// Target = lowongan demo "Sustainability Officer, PT Hijau Lestari" (lib/mock-jobs.js, id 1), supaya
-// ceritanya nyambung dengan halaman rekomendasi. Skill gap sama dengan gap lowongan itu:
-// Pelaporan ESG dan Regulasi Keberlanjutan belum dikuasai; Analisis Data dan Koordinasi Proyek sudah.
-// Kalau kedua skill gap terpenuhi, skor kecocokan lowongan ini naik dari 83 ke 95.
-const LEARNING_TARGET = {
-  position: "Sustainability Officer",
-  company: "PT Hijau Lestari",
-  skillGaps: [
-    { skill: "Pelaporan ESG", status: "Belum dikuasai", tone: "red" },
-    { skill: "Regulasi Keberlanjutan", status: "Belum dikuasai", tone: "red" },
-    { skill: "Analisis Data", status: "Sudah baik", tone: "green" },
-    { skill: "Koordinasi Proyek", status: "Sudah baik", tone: "green" },
-  ],
-};
+// - Kotak "Target Posisi & Skill Gap" hanya tampil dengan ?job= (datanya dari lowongan sungguhan);
+//   tanpa ?job= tidak ada target, jadi kotak itu disembunyikan. Pelatihan per skill butuh tabel course_skills terisi.
 
 // Status di database (user_course_progress.status) -> status di halaman.
 // "planned" = belum dimulai, jadi tidak dikirim ke halaman.
@@ -80,11 +65,11 @@ export async function getLearningPath(jobParam = null) {
     job: path.job,
     jobNotFound: path.jobNotFound,
     gap: path.gap,
-    // Mode semua pelatihan masih memakai target contoh (lihat catatan di atas); mode lowongan memakai data asli.
+    // Hanya mode lowongan yang punya target; mode semua pelatihan: null (kotak target disembunyikan).
     target:
-      path.mode === "all"
-        ? LEARNING_TARGET
-        : { position: path.job.title, company: path.job.company, ...path.gap.hero },
+      path.mode === "job"
+        ? { position: path.job.title, company: path.job.company, ...path.gap.hero }
+        : null,
     courses: path.courses,
     progress: toProgress(progressRows),
   };
