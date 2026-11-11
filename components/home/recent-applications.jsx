@@ -20,13 +20,15 @@ const NEXT_STEP = {
   ditolak: "Coba lowongan lain yang cocok",
 };
 
-// Tiga lamaran terbaru, diurutkan dari tanggal paling baru.
-const LATEST = [...MOCK_APPLICATIONS]
-  .sort((a, b) => b.appliedAt.localeCompare(a.appliedAt))
-  .slice(0, 3);
+/**
+ * Ringkasan status lamaran terbaru. Server component, tanpa state.
+ * `applications`: lamaran user dari database (lib/applications-db.js); tanpa itu dipakai data contoh.
+ * @param {{ applications?: import("@/lib/applications-data").Application[] }} props
+ */
+export function RecentApplications({ applications = MOCK_APPLICATIONS }) {
+  // Tiga lamaran terbaru, diurutkan dari tanggal paling baru.
+  const LATEST = [...applications].sort((a, b) => b.appliedAt.localeCompare(a.appliedAt)).slice(0, 3);
 
-/** Ringkasan status lamaran terbaru. Server component, tanpa state. */
-export function RecentApplications() {
   return (
     <section aria-labelledby="applications-title" className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -45,7 +47,13 @@ export function RecentApplications() {
         </Link>
       </div>
 
-      <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white shadow-sm">
+      {LATEST.length === 0 && (
+        <p className="rounded-xl border border-dashed border-line bg-white p-6 text-center text-sm text-ink/70">
+          Belum ada lamaran. Mulai dari rekomendasi lowongan di atas.
+        </p>
+      )}
+
+      <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white shadow-sm empty:hidden">
         {LATEST.map((a) => {
           const { label, icon: Icon } = STATUS_CONFIG[a.status];
           return (

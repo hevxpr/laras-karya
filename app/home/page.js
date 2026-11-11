@@ -10,6 +10,7 @@ import { RecommendedJobs } from "@/components/home/recommended-jobs";
 import { WelcomeBanner } from "@/components/home/welcome-banner";
 import { PROFILE_REMAINING } from "@/lib/profile-data";
 import { Footer } from "@/components/layout/footer";
+import { fetchMyApplications } from "@/lib/applications-db";
 import { fetchHomeRecommendations } from "@/lib/recommended-jobs-db";
 import { getCurrentUser } from "@/lib/session";
 import {
@@ -34,9 +35,12 @@ async function HomeTop() {
   let matchedJobs = HOME_USER.matchedJobs;
   let jobs = MOCK_JOBS;
   let error = null;
+  let applications; // undefined = RecentApplications memakai data contoh
   if (user) {
     firstName = user.name?.trim().split(/\s+/)[0] || "Anda";
-    ({ matchedJobs, jobs, error } = await fetchHomeRecommendations(user));
+    const [recommended, mine] = await Promise.all([fetchHomeRecommendations(user), fetchMyApplications(user)]);
+    ({ matchedJobs, jobs, error } = recommended);
+    applications = mine.applications;
   }
   return (
     <>
@@ -51,7 +55,7 @@ async function HomeTop() {
       ) : (
         <RecommendedJobs jobs={jobs} />
       )}
-      <RecentApplications />
+      <RecentApplications applications={applications} />
     </>
   );
 }

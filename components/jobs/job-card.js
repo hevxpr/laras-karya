@@ -17,7 +17,7 @@ import { AppliedBadge } from "@/components/ui/applied-badge";
 import { CompanyAvatar, sectorTone } from "@/components/ui/company-avatar";
 
 function TopRow({ job, showMatch = true, hideApplied = false }) {
-  const applied = useHasApplied(job.id);
+  const applied = useHasApplied(job.id, job.applied);
   return (
     <div className="flex items-center justify-between gap-3">
       <span

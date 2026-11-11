@@ -77,7 +77,11 @@ export default function JobList({ jobs = [], initialQuery = "" }) {
   const stage = useHistoryStage();
   const history = stage === "riwayat";
   const openJobs = useMemo(
-    () => getOpenJobsAppliedLast(jobs, history ? hasApplied : NO_APPLICATIONS),
+    // job.applied (dari database) menang; lowongan contoh dijawab dari data contoh seperti sebelumnya.
+    () =>
+      getOpenJobsAppliedLast(jobs, (id, job) =>
+        typeof job?.applied === "boolean" ? job.applied : history ? hasApplied(id) : NO_APPLICATIONS(id),
+      ),
     [jobs, history],
   );
   const [mode, setMode] = useState("semua");

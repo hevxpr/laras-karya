@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Briefcase,
@@ -12,7 +12,8 @@ import {
   PenLine,
   Sparkles,
 } from "lucide-react";
-import { JOBS } from "@/lib/mock-jobs";
+import { submitApplication } from "@/app/applications/actions";
+import { isUuid } from "@/lib/is-uuid";
 import { MOCK_APPLICANT, buildCoverLetter } from "@/lib/mock-applicant";
 import ReadinessChecklist from "./readiness-checklist";
 import SubmissionDialog from "./submission-dialog";
@@ -22,6 +23,14 @@ import { useHasApplied } from "@/lib/demo-history";
 
 // ⬇️ DIHAPUS: PLACEHOLDER_APPLY_URL (tidak dipakai lagi, lamaran sekarang dikirim lewat Laras Karya)
 const MAX_FILE_MB = 5;
+
+const SUBMIT_ERRORS = {
+  auth: "Sesi Anda berakhir. Silakan masuk lagi, lalu kirim ulang lamaran.",
+  closed: "Lowongan ini sudah ditutup, jadi lamaran tidak bisa dikirim.",
+  notfound: "Lowongan tidak ditemukan atau sudah ditarik.",
+  invalid: "Data lamaran tidak valid. Muat ulang halaman lalu coba lagi.",
+  db: "Lamaran belum bisa dikirim. Coba lagi beberapa saat lagi.",
+};
 
 function Field({ label, value, className = "" }) {
   return (
@@ -44,11 +53,18 @@ function StatusChip({ open }) {
   );
 }
 
-function PrepareForm({ job }) {
+/**
+ * onSubmitted: dipanggil begitu lamaran tersimpan (induk menahan tampilan "sudah melamar" sampai pop-up ditutup).
+ * onDismiss: dipanggil saat pop-up ditutup.
+ */
+function PrepareForm({ job, onSubmitted, onDismiss }) {
+  const router = useRouter();
   const a = MOCK_APPLICANT;
   const isOpen = job.status === "dibuka";
   // ⬇️ DIHAPUS: const applyUrl (tidak dipakai lagi)
-  const place = job.mode === "Remote" ? "Remote" : `${job.mode} — ${job.city}`;
+  const place = job.mode === "Remote" ? "Remote" : [job.mode, job.city].filter(Boolean).join(" — ") || "Lokasi tidak dicantumkan";
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   const [letter, setLetter] = useState(() => buildCoverLetter(job, a));
   const [editing, setEditing] = useState(false);
@@ -63,7 +79,7 @@ function PrepareForm({ job }) {
   const fileRef = useRef(null);
 
   const hasLetter = letter.trim().length > 0;
-  const canContinue = isOpen && consent;
+  const canContinue = isOpen && consent && !submitting;
 
   function onPickFile(e) {
     const file = e.target.files?.[0];
@@ -77,13 +93,32 @@ function PrepareForm({ job }) {
     setPortfolio(file.name);
   }
 
-  function handleContinue() {
+  async function handleContinue() {
     if (!canContinue) return;
-    // ⬇️ DIUBAH: sebelumnya membuka situs perusahaan lewat window.open(applyUrl, ...).
-    // Sekarang hanya menampilkan pop-up "Lamaranmu berhasil dikirim".
-    setDialogOpen(true);
-    // TODO (backend): kirim lamaran (job id, CV, surat lamaran, portfolio) ke perusahaan
-    // dan simpan ke Supabase dengan status "dikirim".
+
+    // Lowongan contoh (id angka): hanya menampilkan pop-up, tidak ada yang disimpan.
+    if (!isUuid(job.id)) {
+      setDialogOpen(true);
+      return;
+    }
+
+    // Lowongan dari database: simpan ke tabel applications (status awal "diproses" = tampil "Dilamar").
+    // TODO (backend): unggah CV dan portfolio ke Storage -> applications.resume_url / portfolio_url
+    // (bucket Storage belum ada).
+    setSubmitting(true);
+    setSubmitError("");
+    const result = await submitApplication({ jobId: job.id, coverLetter: letter });
+    setSubmitting(false);
+
+    if (result.ok) {
+      onSubmitted?.();
+      setDialogOpen(true);
+    } else if (result.error === "duplicate") {
+      // Sudah pernah melamar (mis. dari tab lain): muat ulang supaya tampil "Anda sudah melamar".
+      router.refresh();
+    } else {
+      setSubmitError(SUBMIT_ERRORS[result.error] ?? SUBMIT_ERRORS.db);
+    }
   }
 
   const portfolioButton = (
@@ -349,8 +384,13 @@ function PrepareForm({ job }) {
               className="mt-4 w-full rounded-full bg-brand px-6 py-4 font-semibold text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {/* ⬇️ DIUBAH: teks tombol (sebelumnya "Lanjut Melamar di Situs Perusahaan") */}
-              Kirim Lamaran
+              {submitting ? "Mengirim…" : "Kirim Lamaran"}
             </button>
+            {submitError && (
+              <p role="alert" className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-center text-sm text-red-700">
+                {submitError}
+              </p>
+            )}
             <p
               id="continue-hint"
               className="mt-3 text-center text-xs text-slate-600"
@@ -363,7 +403,10 @@ function PrepareForm({ job }) {
 
       <SubmissionDialog
         open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
+        onClose={() => {
+          setDialogOpen(false);
+          onDismiss?.();
+        }}
         job={job}
         // ⬇️ DIHAPUS: applyUrl={applyUrl} (pop-up tidak lagi memuat tautan situs perusahaan)
       />
@@ -371,12 +414,16 @@ function PrepareForm({ job }) {
   );
 }
 
-export default function PrepareApplication() {
-  const params = useSearchParams();
-  // /applications/prepare?job=1  → kalau parameter belum ada, sementara pakai lowongan pertama.
-  const jobId = Number(params.get("job") ?? 1);
-  const job = JOBS.find((j) => j.id === jobId);
-  const alreadyApplied = useHasApplied(job?.id);
+/**
+ * job & alreadyApplied datang dari server (app/applications/prepare/page.js).
+ * alreadyApplied (boolean) = dibaca dari tabel applications; tanpa itu (lowongan contoh) dijawab data contoh.
+ */
+export default function PrepareApplication({ job, alreadyApplied: appliedFromDb }) {
+  const applied = useHasApplied(job?.id, appliedFromDb);
+  // Setelah lamaran tersimpan, halaman dibaca ulang dan "sudah melamar" menjadi true. Selama pop-up
+  // keberhasilan masih terbuka, formulir tetap dipertahankan supaya pop-up tidak ikut hilang.
+  const [justSubmitted, setJustSubmitted] = useState(false);
+  const alreadyApplied = applied && !justSubmitted;
 
   if (job && alreadyApplied) {
     return (
@@ -420,7 +467,12 @@ export default function PrepareApplication() {
   return (
     <div className="mx-auto max-w-[1200px] px-4 pb-16 pt-8 md:px-6 xl:px-8">
       {job ? (
-        <PrepareForm key={job.id} job={job} />
+        <PrepareForm
+          key={job.id}
+          job={job}
+          onSubmitted={() => setJustSubmitted(true)}
+          onDismiss={() => setJustSubmitted(false)}
+        />
       ) : (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
           <p className="font-bold text-ink">Lowongan tidak ditemukan</p>
