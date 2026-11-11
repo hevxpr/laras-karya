@@ -14,6 +14,7 @@ import {
   Compass,
   ExternalLink,
   SearchX,
+  X,
   Sparkle,
   Sparkles,
 } from "lucide-react";
@@ -52,10 +53,16 @@ function LoadingView() {
   );
 }
 
-/** ?q= dibaca dari URL (mis. dari pencarian di Beranda); useSearchParams wajib di dalam <Suspense>. */
+/**
+ * ?q= dibaca dari URL (mis. dari pencarian di Beranda); useSearchParams wajib di dalam <Suspense>.
+ * ?job=<id lowongan> memfilter pelatihan sesuai skill gap lowongan itu (tombol "Lihat Pelatihan" di halaman lowongan).
+ * `key={job}` memuat ulang data saat berpindah antara semua pelatihan dan pelatihan per lowongan.
+ */
 function LearningPathFromUrl() {
-  const initialQuery = useSearchParams().get("q") ?? "";
-  return <LearningPathContent initialQuery={initialQuery} />;
+  const params = useSearchParams();
+  const initialQuery = params.get("q") ?? "";
+  const job = params.get("job") ?? "";
+  return <LearningPathContent key={job} initialQuery={initialQuery} job={job} />;
 }
 
 export default function LearningPathPage() {
@@ -296,11 +303,14 @@ function CourseCard({ course, status, onStart, onComplete }) {
   );
 }
 
-function LearningPathContent({ initialQuery = "" }) {
+function LearningPathContent({ initialQuery = "", job = "" }) {
   const [query, setQuery] = useState(initialQuery);
   const urlTimer = useRef(null);
   useEffect(() => () => clearTimeout(urlTimer.current), []);
   const [target, setTarget] = useState(null);
+  const [jobInfo, setJobInfo] = useState(null); // lowongan yang jadi filter (null = semua pelatihan)
+  const [gap, setGap] = useState(null);
+  const [jobNotFound, setJobNotFound] = useState(false);
   const [courses, setCourses] = useState([]);
   const [progress, setProgress] = useState({});
   const [level, setLevel] = useState("");
@@ -357,9 +367,12 @@ function LearningPathContent({ initialQuery = "" }) {
   const percent = totalCourses ? Math.round((completedCourses / totalCourses) * 100) : 0;
 
   useEffect(() => {
-    getLearningPath()
+    getLearningPath(job || null)
       .then((data) => {
         setTarget(data.target);
+        setJobInfo(data.job);
+        setGap(data.gap);
+        setJobNotFound(data.jobNotFound);
         setCourses(data.courses);
         setProgress(data.progress);
         setLoading(false);
@@ -368,7 +381,7 @@ function LearningPathContent({ initialQuery = "" }) {
         setError(error.message);
         setLoading(false);
       });
-  }, []);
+  }, [job]);
 
   // Dipanggil saat user klik "Daftar": catat sebagai "Sedang diikuti".
   // Pendaftaran sebenarnya terjadi di situs provider (tab baru).
@@ -443,6 +456,37 @@ function LearningPathContent({ initialQuery = "" }) {
           </p>
         </div>
 
+        {jobNotFound ? (
+          <p
+            role="status"
+            className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+          >
+            Lowongan yang dimaksud tidak ditemukan, jadi semua pelatihan ditampilkan.
+          </p>
+        ) : null}
+
+        {jobInfo ? (
+          <div
+            role="status"
+            className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand/20 bg-brand-light px-4 py-3 text-sm text-ink"
+          >
+            <p>
+              Menampilkan pelatihan untuk:{" "}
+              <span className="font-bold text-brand">
+                {jobInfo.title}
+                {jobInfo.company ? `, ${jobInfo.company}` : ""}
+              </span>
+            </p>
+            <Link
+              href="/learning-path"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-brand px-4 text-xs font-bold text-brand transition-colors hover:bg-white md:min-h-9"
+            >
+              <X className="size-3.5" aria-hidden="true" />
+              Hapus filter
+            </Link>
+          </div>
+        ) : null}
+
         <div className="mt-10 space-y-8">
           {/* Target posisi & skill gap */}
           <section
@@ -489,6 +533,9 @@ function LearningPathContent({ initialQuery = "" }) {
                   </li>
                 ))}
               </ul>
+              {target.moreSkills > 0 ? (
+                <p className="mt-2 text-xs text-white/80">+{target.moreSkills} keterampilan lainnya</p>
+              ) : null}
             </div>
           </section>
 
@@ -551,6 +598,12 @@ function LearningPathContent({ initialQuery = "" }) {
               ) : null}
             </div>
 
+            {gap?.uncovered.length > 0 && courses.length > 0 ? (
+              <p className="mt-3 text-sm text-ink/70">
+                Belum ada pelatihan di Laras Karya untuk: {gap.uncovered.join(", ")}.
+              </p>
+            ) : null}
+
             {filtered.length > 0 ? (
               <p aria-live="polite" className="mt-3 text-sm text-ink/70">
                 Menampilkan {firstIndex + 1}–{firstIndex + pageCourses.length} dari {filtered.length} pelatihan
@@ -559,7 +612,30 @@ function LearningPathContent({ initialQuery = "" }) {
             ) : null}
 
             <div ref={listRef} className="mt-6 scroll-mt-24">
-              {filtered.length === 0 ? (
+              {courses.length === 0 && gap ? (
+                <EmptyState
+                  icon={gap.missing === 0 ? Check : SearchX}
+                  title={
+                    gap.total === 0
+                      ? "Lowongan ini belum mencantumkan keterampilan teknis"
+                      : gap.missing === 0
+                        ? "Anda sudah memenuhi semua skill untuk lowongan ini"
+                        : "Belum ada pelatihan untuk skill yang kurang"
+                  }
+                  text={
+                    gap.missing === 0
+                      ? "Tidak ada skill teknis yang perlu dilengkapi. Anda bisa langsung melamar, atau lihat pelatihan lain."
+                      : `Belum ada pelatihan di Laras Karya untuk: ${gap.uncovered.join(", ")}. Cari di penyedia lain, atau lihat semua pelatihan.`
+                  }
+                >
+                  <Link
+                    href="/learning-path"
+                    className="inline-flex rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand/90"
+                  >
+                    Lihat semua pelatihan
+                  </Link>
+                </EmptyState>
+              ) : filtered.length === 0 ? (
                 <EmptyState
                   icon={SearchX}
                   title={

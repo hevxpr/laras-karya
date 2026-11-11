@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Check, Sparkles } from "lucide-react";
 import { buildReasons } from "@/lib/match-reasons";
+import { learningPathHref } from "@/lib/routes";
 
 export function splitSkills(job) {
   const missing = (job.gaps ?? []).map((g) => (Array.isArray(g) ? g[0] : g));
@@ -112,7 +113,7 @@ export default function MatchPanel({ job }) {
         <h4 className="mb-4 font-bold text-ink">Skill Gap</h4>
         <SkillGapList owned={owned} missing={missing} />
         <Link
-          href="/learning-path"
+          href={learningPathHref(job.id)}
           className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-brand hover:underline"
         >
           Lihat Pelatihan Terkait
