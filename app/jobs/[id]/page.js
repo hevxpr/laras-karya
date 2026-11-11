@@ -6,6 +6,7 @@ import { FitReasonBanner } from "@/components/jobs/fit-reason-banner";
 import { JobHeader } from "@/components/jobs/job-header";
 import { JobRequirements } from "@/components/jobs/job-requirements";
 import { JobSidebarInfo } from "@/components/jobs/job-sidebar-info";
+import { SkillGapPlan } from "@/components/jobs/skill-gap-plan";
 import { MatchSkillGapCard } from "@/components/jobs/match-skill-gap-card";
 import { MobileApplyBar } from "@/components/jobs/mobile-apply-bar";
 //import { Navbar } from "@/components/layout/navbar";
@@ -60,11 +61,12 @@ async function JobDetailContent({ params }) {
             missingCount={countMissingSkills(job.skills)}
           />
           <JobSidebarInfo job={job} />
+          <SkillGapPlan job={job} />
           <JobRequirements job={job} />
         </div>
 
         <aside aria-label="Kecocokan profil dan aksi melamar">
-          <MatchSkillGapCard job={job} />
+          <MatchSkillGapCard job={job} planHref="rencana-belajar" />
         </aside>
       </div>
       <MobileApplyBar job={job} />

@@ -1,50 +1,76 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import {
-  ArrowRight,
-  BookOpen,
-  Check,
-  CheckCircle2,
-  ClipboardCheck,
-  X,
-} from "lucide-react";
+
+import { ScrollLink } from "@/components/jobs/scroll-link";
+import { ArrowRight, BookOpen, Check, CheckCircle2, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useHasApplied } from "@/lib/demo-history";
+import { groupSkills } from "@/lib/skill-groups";
+import { hasCourse, sortGap } from "@/lib/skill-gap-data";
 
-const SKILL_STATUS = {
-  dimiliki: {
-    label: "Sudah dimiliki",
-    pill: "bg-emerald-400/20 text-emerald-100",
-    ok: true,
-  },
-  belum: {
-    label: "Belum dimiliki",
-    pill: "bg-red-400/20 text-red-200",
-    ok: false,
-  },
-};
+/** Paling banyak berapa skill per blok yang dirinci di kartu ini; sisanya ada di kartu "Rencana Belajar". */
+const MAX_ROWS = 3;
+
+const BLOCK = "mt-3 rounded-lg bg-white/10 p-3";
+const BLOCK_TITLE = "text-xs font-bold uppercase tracking-wide text-white/80";
 
 /**
- * Kartu hijau tua "Kecocokan Profil" (sticky di desktop).
- * - Toggle buka/tutup breakdown Skill Gap (F04b ↔ F04c)
- * - "Lamar Sekarang" mensimulasikan kirim lamaran (idle → loading → done)
- *
- * @param {{ job: import("@/lib/job-detail-data").JobDetail, defaultOpen?: boolean }} props
+ * Satu skill teknis yang belum dimiliki, SATU baris: lingkaran X merah, nama, dan (bila ada) penanda pelatihan.
+ * Rincian pelatihan / "Cari di luar" ada di kartu "Rencana Belajar", supaya kartu ini tetap pendek.
  */
-export function MatchSkillGapCard({ job, defaultOpen = false }) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+function GapRow({ skill }) {
+  return (
+    <li className="flex items-center gap-2 text-[13px]">
+      <span className="grid size-4 shrink-0 place-items-center rounded-full bg-red-500">
+        <X className="size-2.5" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1 break-words">
+        {skill.name}
+        <span className="sr-only"> (belum dimiliki)</span>
+      </span>
+      {hasCourse(skill) && (
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-brand">
+          <BookOpen className="size-3" aria-hidden="true" />
+          {skill.courses.length}
+          <span className="sr-only"> pelatihan tersedia</span>
+        </span>
+      )}
+    </li>
+  );
+}
+
+/**
+ * Kartu hijau tua "Kecocokan Profil" (sticky di desktop): skor, ringkasan skill gap, dan aksi.
+ * Rincian skill gap (teknis, pendukung, pelatihan) ada di kartu "Rencana Belajar" (skill-gap-plan.jsx).
+ * Kartu ini sengaja pendek (tinggi sekitar 350-400px) supaya tombol aksi selalu terlihat saat sticky.
+ * "Lamar Sekarang" mensimulasikan kirim lamaran (idle → loading → done).
+ *
+ * @param {{ job: import("@/lib/job-detail-data").JobDetail, planHref?: string }} props
+ *   planHref: id kartu tujuan tautan "Lihat rencana belajar" (mis. "rencana-belajar"); tanpa ini tautan tidak ditampilkan.
+ */
+export function MatchSkillGapCard({ job, planHref }) {
   const applied = useHasApplied(job.id);
 
-  const missing = job.skills.filter((s) => s.status !== "dimiliki");
+  const g = groupSkills(job.skills);
+  // Lowongan dari database: yang dihitung "perlu dilengkapi" dan masuk tombol pelatihan hanya skill teknis,
+  // diurutkan dari yang paling berpengaruh (wajib dulu, paling banyak diminta, sudah ada pelatihan).
+  const gap = sortGap(g.structured ? g.technicalMissing : job.skills.filter((s) => s.status !== "dimiliki"));
+  const hasGap = gap.length > 0;
+  const hasSkills = g.structured ? g.technical.length > 0 : job.skills.length > 0;
+  const label = g.structured ? "keterampilan teknis" : "keterampilan";
+  // Info pelatihan: tampil hanya bila datanya diketahui (courses bukan undefined).
+  const coursesKnown = gap.some((s) => Array.isArray(s.courses));
+  const skillsWithCourse = gap.filter(hasCourse).length;
+  // Ada gap, tapi tidak satu pun skill-nya punya pelatihan: tombol pelatihan tidak ditampilkan sebagai tautan.
+  const noTraining = hasGap && coursesKnown && skillsWithCourse === 0;
+  const trainingCount = coursesKnown ? skillsWithCourse : gap.length;
+  // "Lamar Sekarang" jadi tombol kedua hanya bila ada tombol pelatihan yang bisa ditekan sebagai tombol utama.
+  const lamarSecondary = hasGap && !noTraining;
 
   return (
-    <section
-      aria-labelledby="match-title"
-      className="rounded-xl bg-brand p-5 text-white shadow-sm lg:sticky lg:top-24"
-    >
+    <section aria-labelledby="match-title" className="rounded-xl bg-brand p-5 text-white shadow-sm lg:sticky lg:top-24">
       <div className="flex items-center justify-between">
         <h2 id="match-title" className="text-[13px] font-bold">
           Kecocokan Profil
@@ -68,73 +94,59 @@ export function MatchSkillGapCard({ job, defaultOpen = false }) {
             aria-valuemax={100}
             aria-label="Kecocokan profil"
           >
-            <div
-              className="h-full rounded-full bg-white"
-              style={{ width: `${job.matchPercent}%` }}
-            />
+            <div className="h-full rounded-full bg-white" style={{ width: `${job.matchPercent}%` }} />
           </div>
           <p className="mt-2 text-xs text-white/80">
-            Dihitung dari tujuh komponen: keahlian, sektor, pengalaman, pola kerja, lokasi, pendidikan, dan benefit.
+            Dihitung dari enam komponen: keahlian, sektor, pengalaman, pola kerja, pendidikan, dan lokasi.
           </p>
         </>
       )}
 
-      <button
-        type="button"
-        onClick={() => setIsOpen((v) => !v)}
-        aria-expanded={isOpen}
-        aria-controls="skill-gap-panel"
-        className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-white/60 text-[13px] font-semibold transition-colors hover:bg-white/10"
-      >
-        <ClipboardCheck className="size-4" aria-hidden="true" />
-        {isOpen ? "Sembunyikan Skill Gap" : "Cek Skill Gap"}
-      </button>
-
-      {isOpen && (
-        <div id="skill-gap-panel" className="mt-3 rounded-lg bg-white/10 p-3">
-          <p className="text-xs font-bold uppercase tracking-wide text-white/80">
-            {missing.length} keterampilan perlu dilengkapi
-          </p>
-
-          <ul className="mt-2.5 space-y-2">
-            {job.skills.map((s) => {
-              const st = SKILL_STATUS[s.status];
-              return (
-                <li key={s.id} className="flex items-center gap-2 text-[12px]">
-                  <span
-                    className={cn(
-                      "grid size-4 shrink-0 place-items-center rounded-full",
-                      st.ok ? "bg-emerald-500" : "bg-red-500",
-                    )}
-                  >
-                    {st.ok ? (
-                      <Check className="size-2.5" aria-hidden="true" />
-                    ) : (
-                      <X className="size-2.5" aria-hidden="true" />
-                    )}
-                  </span>
-                  <span className="min-w-0 flex-1">{s.name}</span>
-                  <span
-                    className={cn(
-                      "whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold",
-                      st.pill,
-                    )}
-                  >
-                    {st.label}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-
-          <Link
-            href="/learning-path"
-            className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-white text-[12px] font-bold text-brand transition-colors hover:bg-brand-light"
-          >
-            <BookOpen className="size-4" aria-hidden="true" />
-            Lihat Pelatihan ({missing.length} keterampilan)
-          </Link>
+      {hasSkills && (
+        <div className={BLOCK}>
+          {hasGap ? (
+            <>
+              <p className={BLOCK_TITLE}>
+                {gap.length} {label} perlu dilengkapi
+              </p>
+              <ul className="mt-2.5 space-y-2">
+                {gap.slice(0, MAX_ROWS).map((s) => (
+                  <GapRow key={s.id} skill={s} />
+                ))}
+              </ul>
+              {planHref && (
+                <ScrollLink
+                  to={planHref}
+                  className="mt-2 inline-flex min-h-11 items-center text-xs font-semibold underline underline-offset-2 md:min-h-0"
+                >
+                  {gap.length > MAX_ROWS ? `+${gap.length - MAX_ROWS} lainnya · ` : ""}Lihat rencana belajar
+                </ScrollLink>
+              )}
+            </>
+          ) : (
+            <p className="flex items-center gap-2 text-[13px] font-semibold">
+              <span className="grid size-4 shrink-0 place-items-center rounded-full bg-emerald-500">
+                <Check className="size-2.5" aria-hidden="true" />
+              </span>
+              Semua {label} terpenuhi
+            </p>
+          )}
         </div>
+      )}
+
+      {hasGap && !noTraining && (
+        <Link
+          href="/learning-path"
+          className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-white text-[13px] font-bold text-brand transition-colors hover:bg-brand-light"
+        >
+          <BookOpen className="size-4" aria-hidden="true" />
+          Lihat Pelatihan ({trainingCount} keterampilan)
+        </Link>
+      )}
+      {noTraining && (
+        <p className="mt-3 flex min-h-11 w-full items-center justify-center rounded-lg bg-white/10 px-3 text-center text-[13px] font-semibold text-white/70">
+          Belum ada pelatihan tersedia
+        </p>
       )}
 
       {applied ? (
@@ -142,20 +154,22 @@ export function MatchSkillGapCard({ job, defaultOpen = false }) {
           href="/applications"
           className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-white/60 text-[13px] font-semibold transition-colors hover:bg-white/10"
         >
-          <CheckCircle2 className="size-4" aria-hidden="true" /> Lihat Lamaran
-          Saya
+          <CheckCircle2 className="size-4" aria-hidden="true" /> Lihat Lamaran Saya
         </Link>
       ) : job.isOpen ? (
         <>
           <Link
             href={`/applications/prepare?job=${job.id}`}
-            className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-white text-[13px] font-bold text-brand transition-colors hover:bg-brand-light"
+            className={cn(
+              "mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg text-[13px] font-bold transition-colors",
+              lamarSecondary
+                ? "border border-white/60 text-white hover:bg-white/10"
+                : "bg-white text-brand hover:bg-brand-light",
+            )}
           >
             Lamar Sekarang <ArrowRight className="size-4" aria-hidden="true" />
           </Link>
-          <p className="mt-2 text-center text-xs text-white/80">
-            Periksa dokumen dulu, lalu kirim lamaran.
-          </p>
+          <p className="mt-2 text-center text-xs text-white/80">Periksa dokumen dulu, lalu kirim lamaran.</p>
         </>
       ) : (
         <button

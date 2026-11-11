@@ -8,7 +8,8 @@ import { loginTo } from "@/lib/routes";
 
 /** Kartu lowongan umum: tanpa skor kecocokan (itu khusus halaman rekomendasi). */
 export function CatalogJobCard({ job, selectedFacilities = [] }) {
-  const place = job.mode === "Remote" ? "Remote" : `${job.city} • ${job.mode}`;
+  // Kota atau pola kerja bisa kosong di database; yang kosong dilewati.
+  const place = job.mode === "Remote" ? "Remote" : [job.city, job.mode].filter(Boolean).join(" • ") || "Lokasi tidak dicantumkan";
   const detailHref = loginTo(`/jobs/${job.id}`);
 
   return (
