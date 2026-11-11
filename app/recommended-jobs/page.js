@@ -5,7 +5,8 @@ import JobList, { JobListFromUrl } from "@/components/jobs/job-list";
 import { GuestPreview } from "@/components/jobs/guest-preview";
 import { Footer } from "@/components/layout/footer";
 import { PageBanner } from "@/components/ui/page-banner";
-import { hasSession } from "@/lib/session";
+import { fetchRecommendedJobs } from "@/lib/recommended-jobs-db";
+import { getCurrentUser } from "@/lib/session";
 
 export const metadata = {
   title: "Rekomendasi Karier Hijau | Laras Karya",
@@ -18,13 +19,24 @@ export const metadata = {
   - tamu (belum masuk)  -> GuestPreview: satu rekomendasi utuh, sisanya buram + ajakan daftar
   - pengguna sudah masuk -> daftar penuh (JobList)
   Pembedanya sesi Supabase Auth (lib/session.js), dibaca di server di dalam <Suspense>.
+  Daftar penuh dibaca dari Supabase (lib/recommended-jobs-db.js) lalu dikirim ke JobList lewat props.
+  Pratinjau tamu masih memakai data contoh.
 */
 async function Results() {
-  if (!(await hasSession())) return <GuestPreview />;
+  const user = await getCurrentUser();
+  if (!user) return <GuestPreview />;
+  const { jobs, error } = await fetchRecommendedJobs(user);
+  if (error) {
+    return (
+      <div role="alert" className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+        {error}
+      </div>
+    );
+  }
   // JobListFromUrl membaca ?q= dari URL; selama itu, daftar tanpa pencarian tampil lebih dulu
   return (
-    <Suspense fallback={<JobList />}>
-      <JobListFromUrl />
+    <Suspense fallback={<JobList jobs={jobs} />}>
+      <JobListFromUrl jobs={jobs} />
     </Suspense>
   );
 }

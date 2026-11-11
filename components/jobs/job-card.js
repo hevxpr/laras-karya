@@ -38,7 +38,8 @@ function TopRow({ job, showMatch = true, hideApplied = false }) {
 }
 
 function Meta({ job, selectedFacilities = [] }) {
-  const place = job.mode === "Remote" ? "Remote" : `${job.city} • ${job.mode}`;
+  // Kota atau pola kerja bisa kosong di data database; yang kosong dilewati.
+  const place = job.mode === "Remote" ? "Remote" : [job.city, job.mode].filter(Boolean).join(" • ") || "Lokasi tidak dicantumkan";
   return (
     <ul className="mt-3 space-y-1.5 text-sm text-slate-600">
       <li className="flex items-center gap-2">

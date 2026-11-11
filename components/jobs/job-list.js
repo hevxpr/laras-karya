@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { SearchX, Sparkles } from "lucide-react";
-import { JOBS } from "@/lib/mock-jobs";
 import { hasApplied } from "@/lib/applications-data";
 import { useHistoryStage } from "@/lib/demo-history";
 import { getOpenJobsAppliedLast } from "@/lib/job-ordering";
@@ -24,7 +24,7 @@ const MODES = [
   { label: "Remote", value: "Remote" },
 ];
 
-// Sementara. Nanti recommended_jobs() di database yang menyaring ini.
+// Daftar `jobs` sudah disaring dan diurutkan database (job_recommendations, lib/recommended-jobs-db.js).
 // Aturan urutan ada di lib/job-ordering.js (sama dengan Beranda). Akun baru belum punya lamaran,
 // jadi tidak ada lowongan yang dipindah ke belakang (lib/demo-history.js).
 const NO_APPLICATIONS = () => false;
@@ -68,17 +68,17 @@ function SectionTitle({ children, titleRef }) {
 }
 
 /** Membaca ?q= dari URL (mis. dari pencarian di Beranda). Dibungkus <Suspense> di halaman. */
-export function JobListFromUrl() {
+export function JobListFromUrl({ jobs }) {
   const initialQuery = useSearchParams().get("q") ?? "";
-  return <JobList initialQuery={initialQuery} />;
+  return <JobList jobs={jobs} initialQuery={initialQuery} />;
 }
 
-export default function JobList({ initialQuery = "" }) {
+export default function JobList({ jobs = [], initialQuery = "" }) {
   const stage = useHistoryStage();
   const history = stage === "riwayat";
   const openJobs = useMemo(
-    () => getOpenJobsAppliedLast(JOBS, history ? hasApplied : NO_APPLICATIONS),
-    [history],
+    () => getOpenJobsAppliedLast(jobs, history ? hasApplied : NO_APPLICATIONS),
+    [jobs, history],
   );
   const [mode, setMode] = useState("semua");
   const [facilities, setFacilities] = useState([]);
@@ -143,6 +143,24 @@ export default function JobList({ initialQuery = "" }) {
       behavior: reduce ? "auto" : "smooth",
       block: "start",
     });
+  }
+
+  // Belum ada satu pun rekomendasi untuk user ini (bukan hasil filter/pencarian).
+  if (jobs.length === 0) {
+    return (
+      <EmptyState
+        icon={Sparkles}
+        title="Belum ada rekomendasi untuk Anda"
+        text="Rekomendasi muncul setelah asesmen karier selesai dan profil Anda terisi. Bila sudah, coba muat ulang halaman ini."
+      >
+        <Link
+          href="/assessment"
+          className="rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand/90"
+        >
+          Mulai asesmen
+        </Link>
+      </EmptyState>
+    );
   }
 
   // Tunggu tahap pengguna diketahui supaya kartu utama tidak berganti sesaat setelah tampil.

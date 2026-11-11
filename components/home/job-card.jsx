@@ -19,8 +19,8 @@ export function JobCard({ job, featured = false }) {
     benefit,
   } = job;
 
-  // Cek apakah lowongan ini sudah dilamar oleh user
-  const applied = hasApplied(id);
+  // Status lamaran dari database bila ada (job.applied), kalau tidak dari data contoh
+  const applied = job.applied ?? hasApplied(id);
   const MetaIcon = workMode.startsWith("Remote") ? Laptop : MapPin;
 
   return (
