@@ -46,6 +46,7 @@ import {
   parseLocation,
 } from "./actions";
 import { loadMyProfile, saveMyProfile } from "./data-actions";
+import { suggestSkillsFromCertificate } from "./skill-actions";
 
 import { LinkedinIcon } from "@/components/icons";
 import { Footer } from "@/components/layout/footer";
@@ -282,6 +283,9 @@ export default function ProfilePage() {
   const [toast, setToast] = useState("");
   const [resumes, setResumes] = useState([]);
   const [generating, setGenerating] = useState(false);
+  // Saran keahlian AI dari sertifikat yang baru ditambahkan: { status: "idle" | "loading" | "done", source, labels }.
+  const [aiSkills, setAiSkills] = useState({ status: "idle", source: "", labels: [] });
+  const aiRequestRef = useRef(0);
   const dialogRef = useRef(null);
 
   const p = draft;
@@ -335,6 +339,37 @@ export default function ProfilePage() {
 
     setDraft((current) => ACTIONS[type][mode](current, formData, id));
     setDialog(null);
+
+    if (type === "certification" && mode === "add") {
+      suggestSkillsForCertificate(String(formData.get("name") ?? ""), String(formData.get("issuer") ?? ""));
+    }
+  }
+
+  // Minta saran keahlian dari nama sertifikat. Jika gagal, diam saja: sertifikat tetap tertambah.
+  // Penghitung permintaan memastikan jawaban lama tidak menimpa yang lebih baru.
+  async function suggestSkillsForCertificate(name, issuer) {
+    const requestId = ++aiRequestRef.current;
+    setAiSkills({ status: "loading", source: name, labels: [] });
+    let labels = [];
+    try {
+      const res = await suggestSkillsFromCertificate({ name, issuer });
+      if (res.ok) labels = res.labels;
+    } catch {
+      // abaikan
+    }
+    if (requestId !== aiRequestRef.current) return;
+    setAiSkills(labels.length > 0 ? { status: "done", source: name, labels } : { status: "idle", source: "", labels: [] });
+  }
+
+  function addSuggestedSkill(label) {
+    const formData = new FormData();
+    formData.set("label", label);
+    setDraft((current) => addSkill(current, formData));
+  }
+
+  function dismissAiSkills() {
+    aiRequestRef.current += 1;
+    setAiSkills({ status: "idle", source: "", labels: [] });
   }
 
   function handleDelete(deleteAction, id, label) {
@@ -394,6 +429,10 @@ export default function ProfilePage() {
       </main>
     );
   }
+
+  // Saran AI yang belum dimiliki user (skill yang sudah ada tidak ditawarkan lagi).
+  const ownedSkills = new Set(p.skills.map((skill) => skill.label.toLowerCase()));
+  const freshAiSkills = aiSkills.labels.filter((label) => !ownedSkills.has(label.toLowerCase()));
 
   return (
     <main className="flex-1 bg-surface">
@@ -826,6 +865,43 @@ export default function ProfilePage() {
                   </ul>
                 ) : (
                   <p className="text-sm text-ink/70">Belum ada keahlian. Tambahkan untuk meningkatkan rekomendasi AI.</p>
+                )}
+
+                {aiSkills.status === "loading" && (
+                  <p className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-ai" role="status">
+                    <Sparkles className="size-3.5 motion-safe:animate-pulse" aria-hidden="true" />
+                    AI sedang membaca sertifikat “{aiSkills.source}”…
+                  </p>
+                )}
+                {aiSkills.status === "done" && freshAiSkills.length > 0 && (
+                  <div className="mt-4">
+                    <div className="mb-2 flex items-start justify-between gap-3">
+                      <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-ai">
+                        <Sparkles className="size-3.5" aria-hidden="true" />
+                        Disarankan AI dari sertifikat “{aiSkills.source}”:
+                      </p>
+                      <button
+                        type="button"
+                        onClick={dismissAiSkills}
+                        className="text-xs font-semibold text-ink/70 hover:underline focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none"
+                      >
+                        Tutup
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {freshAiSkills.map((label) => (
+                        <button
+                          key={label}
+                          type="button"
+                          onClick={() => addSuggestedSkill(label)}
+                          className="inline-flex items-center gap-1 rounded-full border border-ai/40 bg-pink-50 px-3 py-1.5 text-[13px] hover:border-ai"
+                        >
+                          <Plus className="size-3.5" aria-hidden="true" />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             </section>
