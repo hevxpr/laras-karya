@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { submitApplication } from "@/app/applications/actions";
 import { isUuid } from "@/lib/is-uuid";
-import { MOCK_APPLICANT, buildCoverLetter } from "@/lib/mock-applicant";
+import { buildCoverLetter } from "@/lib/applicant-mapping";
 import ReadinessChecklist from "./readiness-checklist";
 import SubmissionDialog from "./submission-dialog";
 import ApplySteps from "./apply-steps";
@@ -29,6 +29,8 @@ const SUBMIT_ERRORS = {
   closed: "Lowongan ini sudah ditutup, jadi lamaran tidak bisa dikirim.",
   notfound: "Lowongan tidak ditemukan atau sudah ditarik.",
   invalid: "Data lamaran tidak valid. Muat ulang halaman lalu coba lagi.",
+  terms: "Centang pernyataan persetujuan terlebih dahulu.",
+  letter: "Surat lamaran tidak boleh kosong.",
   db: "Lamaran belum bisa dikirim. Coba lagi beberapa saat lagi.",
 };
 
@@ -57,9 +59,9 @@ function StatusChip({ open }) {
  * onSubmitted: dipanggil begitu lamaran tersimpan (induk menahan tampilan "sudah melamar" sampai pop-up ditutup).
  * onDismiss: dipanggil saat pop-up ditutup.
  */
-function PrepareForm({ job, onSubmitted, onDismiss }) {
+function PrepareForm({ job, applicant, onSubmitted, onDismiss }) {
   const router = useRouter();
-  const a = MOCK_APPLICANT;
+  const a = applicant;
   const isOpen = job.status === "dibuka";
   // ⬇️ DIHAPUS: const applyUrl (tidak dipakai lagi)
   const place = job.mode === "Remote" ? "Remote" : [job.mode, job.city].filter(Boolean).join(" — ") || "Lokasi tidak dicantumkan";
@@ -79,7 +81,7 @@ function PrepareForm({ job, onSubmitted, onDismiss }) {
   const fileRef = useRef(null);
 
   const hasLetter = letter.trim().length > 0;
-  const canContinue = isOpen && consent && !submitting;
+  const canContinue = isOpen && consent && hasLetter && !submitting;
 
   function onPickFile(e) {
     const file = e.target.files?.[0];
@@ -107,7 +109,7 @@ function PrepareForm({ job, onSubmitted, onDismiss }) {
     // (bucket Storage belum ada).
     setSubmitting(true);
     setSubmitError("");
-    const result = await submitApplication({ jobId: job.id, coverLetter: letter });
+    const result = await submitApplication({ jobId: job.id, coverLetter: letter, termsAccepted: consent });
     setSubmitting(false);
 
     if (result.ok) {
@@ -147,7 +149,19 @@ function PrepareForm({ job, onSubmitted, onDismiss }) {
   );
 
   const items = [
-    { key: "profil", label: "Profil lengkap", done: true },
+    {
+      key: "profil",
+      label: a.complete ? "Profil lengkap" : "Profil belum lengkap (telepon, pengalaman, atau pendidikan)",
+      done: a.complete,
+      action: a.complete ? null : (
+        <Link
+          href="/profile"
+          className="rounded-full border border-brand px-3.5 py-1.5 text-xs font-semibold text-brand transition hover:bg-brand-light"
+        >
+          Lengkapi Profil
+        </Link>
+      ),
+    },
     {
       key: "cv",
       label: cvFile ? `CV terunggah: ${cvFile.name}` : "CV belum diunggah",
@@ -188,6 +202,8 @@ function PrepareForm({ job, onSubmitted, onDismiss }) {
     ? "Lowongan ini sudah ditutup."
     : !consent
       ? "Centang pernyataan di atas untuk melanjutkan."
+      : !hasLetter
+        ? "Isi surat lamaran terlebih dahulu."
       : !cvFile
         ? "Belum ada CV terlampir. Anda tetap bisa melanjutkan, tetapi sebagian perusahaan mewajibkan CV."
       : "Lamaran Anda akan dikirim ke perusahaan melalui Laras Karya.";
@@ -269,16 +285,42 @@ function PrepareForm({ job, onSubmitted, onDismiss }) {
 
             <dl className="mt-5 grid gap-4 sm:grid-cols-2">
               <Field label="Nama Lengkap" value={a.name} />
-              <Field label="Telepon" value={a.phone} />
+              <Field label="Telepon" value={a.phone || <span className="text-slate-500">Belum diisi</span>} />
               <Field
                 className="sm:col-span-2"
                 label="Pengalaman Terakhir"
-                value={`${a.lastJob.title} — ${a.lastJob.company} (${a.lastJob.years} tahun)`}
+                value={
+                  a.lastJob
+                    ? `${a.lastJob.title} — ${a.lastJob.company}${a.lastJob.period ? ` (${a.lastJob.period})` : ""}`
+                    : <span className="text-slate-500">Belum diisi</span>
+                }
               />
               <Field
                 className="sm:col-span-2"
                 label="Pendidikan"
-                value={`${a.education.degree} — ${a.education.school}`}
+                value={
+                  a.education
+                    ? [a.education.degree, a.education.school].filter(Boolean).join(" — ")
+                    : <span className="text-slate-500">Belum diisi</span>
+                }
+              />
+              <Field
+                className="sm:col-span-2"
+                label="Keahlian"
+                value={
+                  a.skills?.length ? (
+                    <span className="flex flex-wrap gap-1.5">
+                      {a.skills.slice(0, 8).map((k) => (
+                        <span key={k} className="rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-brand ring-1 ring-slate-200">
+                          {k}
+                        </span>
+                      ))}
+                      {a.skills.length > 8 && <span className="text-xs text-slate-600">+{a.skills.length - 8}</span>}
+                    </span>
+                  ) : (
+                    <span className="text-slate-500">Belum diisi</span>
+                  )
+                }
               />
             </dl>
 
@@ -418,7 +460,7 @@ function PrepareForm({ job, onSubmitted, onDismiss }) {
  * job & alreadyApplied datang dari server (app/applications/prepare/page.js).
  * alreadyApplied (boolean) = dibaca dari tabel applications; tanpa itu (lowongan contoh) dijawab data contoh.
  */
-export default function PrepareApplication({ job, alreadyApplied: appliedFromDb }) {
+export default function PrepareApplication({ job, applicant, alreadyApplied: appliedFromDb }) {
   const applied = useHasApplied(job?.id, appliedFromDb);
   // Setelah lamaran tersimpan, halaman dibaca ulang dan "sudah melamar" menjadi true. Selama pop-up
   // keberhasilan masih terbuka, formulir tetap dipertahankan supaya pop-up tidak ikut hilang.
@@ -470,6 +512,7 @@ export default function PrepareApplication({ job, alreadyApplied: appliedFromDb 
         <PrepareForm
           key={job.id}
           job={job}
+          applicant={applicant}
           onSubmitted={() => setJustSubmitted(true)}
           onDismiss={() => setJustSubmitted(false)}
         />
