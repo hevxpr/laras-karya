@@ -1,40 +1,17 @@
 "use server";
 
+import { fetchLearningPath } from "@/lib/learning-path-db";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 
 // Data & action untuk halaman Jalur Belajar.
-// - Pelatihan dibaca dari tabel courses (hanya yang is_published).
+// - Pelatihan dibaca dari tabel courses (hanya yang is_published). Tanpa ?job= semua pelatihan tampil; dengan
+//   ?job=<uuid lowongan> hanya pelatihan untuk skill teknis lowongan itu yang belum dimiliki user
+//   (lib/learning-path-db.js; urutan pelatihan di lib/course-order.js, titik sambung engine rekomendasi).
 // - Progres user disimpan di tabel user_course_progress. Memakai sesi user (bukan service role),
 //   jadi dijaga RLS: user hanya membaca dan menulis progresnya sendiri.
-// - Target posisi & skill gap MASIH contoh (mock) di bawah. Nanti diganti dari lowongan target user
-//   + fungsi skill_gap di database; pelatihan per skill butuh tabel course_skills terisi.
-
-// Target = lowongan demo "Sustainability Officer, PT Hijau Lestari" (lib/mock-jobs.js, id 1), supaya
-// ceritanya nyambung dengan halaman rekomendasi. Skill gap sama dengan gap lowongan itu:
-// Pelaporan ESG dan Regulasi Keberlanjutan belum dikuasai; Analisis Data dan Koordinasi Proyek sudah.
-// Kalau kedua skill gap terpenuhi, skor kecocokan lowongan ini naik dari 83 ke 95.
-const LEARNING_TARGET = {
-  position: "Sustainability Officer",
-  company: "PT Hijau Lestari",
-  skillGaps: [
-    { skill: "Pelaporan ESG", status: "Belum dikuasai", tone: "red" },
-    { skill: "Regulasi Keberlanjutan", status: "Belum dikuasai", tone: "red" },
-    { skill: "Analisis Data", status: "Sudah baik", tone: "green" },
-    { skill: "Koordinasi Proyek", status: "Sudah baik", tone: "green" },
-  ],
-};
-
-// Semua level digabung dalam satu daftar (tanpa langkah). Urutan: unggulan lebih dulu, lalu sort_order,
-// lalu level (Pemula -> Menengah -> Lanjutan), lalu judul.
-const LEVEL_ORDER = ["Pemula", "Menengah", "Lanjutan"];
-const levelRank = (level) => {
-  const i = LEVEL_ORDER.indexOf(level);
-  return i === -1 ? 0 : i; // level kosong / tak dikenal diperlakukan seperti Pemula
-};
-
-// courses.format di database huruf kecil; tampilannya diberi huruf kapital di depan.
-const FORMAT_LABELS = { online: "Online", hybrid: "Hybrid", offline: "Offline" };
+// - Kotak "Target Posisi & Skill Gap" hanya tampil dengan ?job= (datanya dari lowongan sungguhan);
+//   tanpa ?job= tidak ada target, jadi kotak itu disembunyikan. Pelatihan per skill butuh tabel course_skills terisi.
 
 // Status di database (user_course_progress.status) -> status di halaman.
 // "planned" = belum dimulai, jadi tidak dikirim ke halaman.
@@ -45,33 +22,6 @@ async function currentUser() {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
   return { supabase, user: data?.user ?? null };
-}
-
-function toCourse(row) {
-  return {
-    id: row.id,
-    provider: row.provider ?? "",
-    title: row.title,
-    level: row.level ?? "Pemula",
-    format: FORMAT_LABELS[row.format] ?? row.format ?? "Online",
-    duration: row.duration_text ?? "",
-    skillTag: row.category ?? null,
-    popular: row.is_featured,
-    imageUrl: row.image_url ?? null,
-    url: row.url,
-  };
-}
-
-function toCourses(rows) {
-  return [...rows]
-    .sort(
-      (x, y) =>
-        Number(y.is_featured) - Number(x.is_featured) ||
-        (x.sort_order ?? 0) - (y.sort_order ?? 0) ||
-        levelRank(x.level) - levelRank(y.level) ||
-        x.title.localeCompare(y.title, "id")
-    )
-    .map(toCourse);
 }
 
 /**
@@ -89,39 +39,38 @@ function toProgress(rows) {
   return progress;
 }
 
-/** Ambil target posisi, langkah + course, dan status course milik user. */
-export async function getLearningPath() {
+/**
+ * Ambil pelatihan + progres milik user.
+ * @param {string | null} [jobParam] nilai ?job= dari URL: id (UUID) lowongan untuk memfilter pelatihan sesuai skill gap-nya
+ */
+export async function getLearningPath(jobParam = null) {
   const { supabase, user } = await currentUser();
   if (!supabase) throw new Error("Koneksi database belum dikonfigurasi.");
+  // Skill gap dihitung dari skill milik user, jadi wajib masuk (halaman ini juga dijaga proxy).
+  if (!user) throw new Error("Sesi Anda berakhir. Silakan masuk lagi.");
 
-  const { data: courses, error } = await supabase
-    .from("courses")
-    .select("id, title, url, level, provider, category, duration_text, format, image_url, is_featured, sort_order")
-    .eq("is_published", true)
-    .order("is_featured", { ascending: false })
-    .order("sort_order", { ascending: true })
-    .order("title", { ascending: true });
-  if (error) {
-    console.error("[getLearningPath] courses:", error.message);
-    throw new Error("Pelatihan belum bisa dimuat. Coba lagi beberapa saat lagi.");
-  }
+  const path = await fetchLearningPath(supabase, user, typeof jobParam === "string" ? jobParam : null);
 
-  let progressRows = [];
-  if (user) {
-    const { data, error: progressError } = await supabase
-      .from("user_course_progress")
-      .select("course_id, status")
-      .eq("user_id", user.id);
-    if (progressError) {
-      console.error("[getLearningPath] progress:", progressError.message);
-      throw new Error("Progres belajar belum bisa dimuat. Coba lagi beberapa saat lagi.");
-    }
-    progressRows = data;
+  const { data: progressRows, error: progressError } = await supabase
+    .from("user_course_progress")
+    .select("course_id, status")
+    .eq("user_id", user.id);
+  if (progressError) {
+    console.error("[getLearningPath] progress:", progressError.message);
+    throw new Error("Progres belajar belum bisa dimuat. Coba lagi beberapa saat lagi.");
   }
 
   return {
-    target: LEARNING_TARGET,
-    courses: toCourses(courses),
+    mode: path.mode,
+    job: path.job,
+    jobNotFound: path.jobNotFound,
+    gap: path.gap,
+    // Hanya mode lowongan yang punya target; mode semua pelatihan: null (kotak target disembunyikan).
+    target:
+      path.mode === "job"
+        ? { position: path.job.title, company: path.job.company, ...path.gap.hero }
+        : null,
+    courses: path.courses,
     progress: toProgress(progressRows),
   };
 }
