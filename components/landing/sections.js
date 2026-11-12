@@ -121,6 +121,7 @@ export async function Jobs() {
                 <CompanyAvatar
                   company={j.company}
                   sector={j.tag}
+                  logoUrl={j.logoUrl}
                   className="h-10 w-10 text-sm"
                 />
                 <div className="min-w-0">

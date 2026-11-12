@@ -49,7 +49,7 @@ export default function SavedJobCard({ job, onRemove }) {
 
       <div className={`mb-6 ${fade}`}>
         <div className="mt-4 flex items-center gap-3">
-          <CompanyAvatar company={job.company} sector={job.sector} />
+          <CompanyAvatar company={job.company} sector={job.sector} logoUrl={job.companyLogoUrl} />
           <div className="min-w-0">
             <h3 className="text-xl font-bold text-ink">{job.title}</h3>
             <p className="text-slate-600">{job.company}</p>
