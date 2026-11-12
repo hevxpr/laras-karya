@@ -50,6 +50,7 @@ import { suggestSkillsFromCertificate } from "./skill-actions";
 
 import { LinkedinIcon } from "@/components/icons";
 import { Footer } from "@/components/layout/footer";
+import { DocumentsSection } from "@/components/profile/documents-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PROFILE, PROFILE_REMAINING } from "@/lib/profile-data";
@@ -343,6 +344,13 @@ export default function ProfilePage() {
     if (type === "certification" && mode === "add") {
       suggestSkillsForCertificate(String(formData.get("name") ?? ""), String(formData.get("issuer") ?? ""));
     }
+  }
+
+  // Sertifikat baru dari kartu "Tambah Dokumen": masuk ke draf profil (disimpan lewat Simpan Perubahan).
+  function handleAddCertificate({ name, issuer, year }, askAi) {
+    const id = `cert-new-${crypto.randomUUID()}`;
+    setDraft((current) => ({ ...current, certifications: [...current.certifications, { id, name, issuer, year }] }));
+    if (askAi) suggestSkillsForCertificate(name, issuer);
   }
 
   // Minta saran keahlian dari nama sertifikat. Jika gagal, diam saja: sertifikat tetap tertambah.
@@ -713,67 +721,11 @@ export default function ProfilePage() {
             </section>
 
             {/* Sertifikasi & portofolio */}
-            <section aria-labelledby="sertifikasi-title" className={CARD}>
-              <header className="flex flex-wrap items-center justify-between gap-3">
-                <h2 id="sertifikasi-title" className={CARD_TITLE}>
-                  <span className={CARD_ICON}>
-                    <Award className="size-5" aria-hidden="true" />
-                  </span>
-                  Sertifikasi &amp; Portofolio
-                </h2>
-                <Button type="button" variant="outline" onClick={() => openDialog("certification", "add")} className={PILL_BUTTON}>
-                  <Plus className="size-4" aria-hidden="true" />
-                  Tambah Sertifikasi
-                </Button>
-              </header>
-              <div className="mt-6">
-                {p.certifications.length > 0 && (
-                  <ul className="divide-y divide-line">
-                    {p.certifications.map((cert) => (
-                      <li key={cert.id} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4 first:pt-0">
-                        <div className="min-w-0">
-                          <h3 className="text-base font-semibold text-ink">{cert.name}</h3>
-                          <p className="text-sm text-ink/70">
-                            {cert.issuer}
-                            {cert.year && ` • ${cert.year}`}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm font-semibold">
-                          <a href="#" className="inline-flex min-h-9 items-center gap-1.5 text-brand underline underline-offset-2">
-                            <FileText className="size-4" aria-hidden="true" />
-                            Lihat Sertifikat
-                          </a>
-                          <button
-                            type="button"
-                            aria-label={`Edit ${cert.name}`}
-                            onClick={() => openDialog("certification", "edit", cert.id)}
-                            className={EDIT_LINK}
-                          >
-                            <Pencil className="size-4" aria-hidden="true" />
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`Hapus ${cert.name}`}
-                            onClick={() => handleDelete(deleteCertification, cert.id, cert.name)}
-                            className={DELETE_LINK}
-                          >
-                            <Trash2 className="size-4" aria-hidden="true" />
-                            Hapus
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                <label className="mt-4 flex cursor-pointer flex-col items-center gap-3 rounded-2xl border border-dashed border-brand bg-white px-6 py-8 text-center text-sm text-ink/80 transition-colors focus-within:ring-3 focus-within:ring-brand/30 hover:bg-brand-light/50">
-                  <UploadCloud className="size-6 text-brand" aria-hidden="true" />
-                  <span>Seret file PDF atau klik untuk mengunggah portofolio</span>
-                  <input type="file" accept="application/pdf" className="sr-only" />
-                </label>
-              </div>
-            </section>
+            <DocumentsSection
+              certifications={p.certifications}
+              onAddCertification={handleAddCertificate}
+              onDeleteCertification={(cert) => handleDelete(deleteCertification, cert.id, cert.name)}
+            />
           </div>
 
           <div className="space-y-6">
