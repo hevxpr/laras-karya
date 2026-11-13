@@ -12,13 +12,13 @@ function visiblePages(page, totalPages) {
   return Array.from({ length: count }, (_, i) => start + i);
 }
 
-export default function Pagination({ page, totalPages, onChange }) {
+export default function Pagination({ page, totalPages, onChange, label = "Halaman lowongan" }) {
   if (totalPages <= 1) return null;
   const pages = visiblePages(page, totalPages);
 
   return (
     <div className="mt-8 flex flex-col items-center gap-2">
-      <nav aria-label="Halaman lowongan" className="flex items-center justify-center gap-2">
+      <nav aria-label={label} className="flex items-center justify-center gap-2">
         <button
           type="button"
           aria-label="Halaman sebelumnya"
