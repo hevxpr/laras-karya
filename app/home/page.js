@@ -8,9 +8,11 @@ import { ProfileCompletion } from "@/components/home/profile-completion";
 import { RecentApplications } from "@/components/home/recent-applications";
 import { RecommendedJobs } from "@/components/home/recommended-jobs";
 import { WelcomeBanner } from "@/components/home/welcome-banner";
-import { PROFILE_REMAINING } from "@/lib/profile-data";
+import { PROFILE_MISSING, PROFILE_REMAINING } from "@/lib/profile-data";
 import { Footer } from "@/components/layout/footer";
+import { loadMyProfile } from "@/app/profile/data-actions";
 import { fetchMyApplications } from "@/lib/applications-db";
+import { hasCompletedAssessment } from "@/lib/assessment-status";
 import { fetchHomeCourses } from "@/lib/home-courses-db";
 import { fetchHomeRecommendations } from "@/lib/recommended-jobs-db";
 import { getCurrentUser } from "@/lib/session";
@@ -29,6 +31,9 @@ export const metadata = {
   Bagian atas Beranda (sapaan, rekomendasi lowongan, lamaran terbaru). Rekomendasi dibaca dari Supabase
   (lib/recommended-jobs-db.js) untuk user yang sedang masuk. Tanpa sesi (mis. env Supabase belum diisi
   di komputer lokal), tampil data contoh seperti sebelumnya. Bagian Pelatihan di bawah masih data contoh.
+
+  Kartu kelengkapan profil dihitung dari profil sungguhan (loadMyProfile, rumus yang sama dengan /profile).
+  Bila profil gagal dibaca, kartunya disembunyikan (tidak menampilkan angka contoh).
 */
 async function HomeTop() {
   const user = await getCurrentUser();
@@ -36,25 +41,34 @@ async function HomeTop() {
   let matchedJobs = HOME_USER.matchedJobs;
   let jobs = MOCK_JOBS;
   let error = null;
+  let profile = { completeness: HOME_USER.profileCompleteness, remaining: PROFILE_REMAINING, missing: PROFILE_MISSING }; // data contoh bila tanpa sesi
   let applications; // undefined = RecentApplications memakai data contoh
+  let assessmentDone = true; // tanpa sesi (data contoh) atau gagal dibaca: tampilan lama, bukan ajakan
   if (user) {
     firstName = user.name?.trim().split(/\s+/)[0] || "Anda";
-    const [recommended, mine] = await Promise.all([fetchHomeRecommendations(user), fetchMyApplications(user)]);
+    const [recommended, mine, myProfile, assessed] = await Promise.all([
+      fetchHomeRecommendations(user),
+      fetchMyApplications(user),
+      loadMyProfile(),
+      hasCompletedAssessment(user),
+    ]);
+    assessmentDone = assessed !== false;
     ({ matchedJobs, jobs, error } = recommended);
+    profile = myProfile; // null bila gagal dibaca
     applications = mine.applications;
   }
   return (
     <>
       <div className="space-y-3">
-        <WelcomeBanner firstName={firstName} matchedJobs={matchedJobs} />
-        <ProfileCompletion value={HOME_USER.profileCompleteness} remaining={PROFILE_REMAINING} />
+        <WelcomeBanner firstName={firstName} matchedJobs={matchedJobs} assessmentDone={assessmentDone} />
+        {profile && <ProfileCompletion value={profile.completeness} missing={profile.missing} remaining={profile.remaining} />}
       </div>
       {error ? (
         <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
           {error}
         </div>
       ) : (
-        <RecommendedJobs jobs={jobs} />
+        <RecommendedJobs jobs={jobs} assessmentDone={assessmentDone} />
       )}
       <RecentApplications applications={applications} />
     </>
