@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Check, Sparkles } from "lucide-react";
 import { buildReasons } from "@/lib/match-reasons";
+import { learningPathHref } from "@/app/api/learning/route";
 
 export function splitSkills(job) {
   const missing = (job.gaps ?? []).map((g) => (Array.isArray(g) ? g[0] : g));
@@ -50,6 +51,22 @@ export function SkillGapList({ owned, missing }) {
         </p>
       )}
     </div>
+  );
+}
+
+/** Pengganti MatchPanel untuk tamu: belum ada skor, alasan, atau skill gap karena belum ada profil. */
+export function GuestMatchPanel() {
+  return (
+    <aside aria-label="Kecocokan dengan profil Anda" className="rounded-2xl bg-white p-6">
+      <h3 className="flex items-center gap-2 font-bold text-ai">
+        <Sparkles className="h-4 w-4" aria-hidden /> Mengapa cocok untuk Anda
+      </h3>
+      <p className="mt-5 font-bold text-ink">Skor kecocokan dihitung dari profil Anda</p>
+      <p className="mt-1 text-sm text-slate-600">
+        Setelah masuk, Anda melihat tingkat kecocokan, alasan, dan skill gap untuk lowongan ini, berdasarkan keahlian,
+        sektor, pengalaman, pola kerja, lokasi, dan pendidikan Anda.
+      </p>
+    </aside>
   );
 }
 
@@ -112,7 +129,7 @@ export default function MatchPanel({ job }) {
         <h4 className="mb-4 font-bold text-ink">Skill Gap</h4>
         <SkillGapList owned={owned} missing={missing} />
         <Link
-          href="/learning-path"
+          href={learningPathHref(job.id)}
           className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-brand hover:underline"
         >
           Lihat Pelatihan Terkait
