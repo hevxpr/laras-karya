@@ -90,7 +90,7 @@ export function JobCard({ job, featured = false }) {
                     : "bg-white text-brand hover:bg-brand-light",
                 )}
               >
-                Lamar Sekarang
+                Lihat Detail
               </Link>
             )}
           </>
