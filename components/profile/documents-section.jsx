@@ -4,20 +4,19 @@ import { useEffect, useRef, useState } from "react";
 import { Award, FileText, Plus, Sparkles, Trash2, UploadCloud, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { createDocumentUrl, deleteDocument, formatSize, listDocuments, uploadDocument, validatePdf } from "@/lib/documents";
 
 /*
   Kartu "Sertifikasi & Portofolio" di halaman /profile (desain: satu pintu "Tambah Dokumen").
 
   - User memilih jenis dokumen (Sertifikat / Portofolio), lalu mengunggah file PDF (maks. 2 MB per file).
     Boleh menambah lebih dari satu dokumen; tiap dokumen satu file.
-  - Data sertifikat (nama, penerbit, tahun) tetap lewat draf profil milik page.js (onAddCertification /
-    onDeleteCertification), jadi ikut tombol "Simpan Perubahan" seperti bagian lain.
-  - TODO (Supabase Storage + tabel documents): FILE-nya sementara hanya disimpan di memori browser (blob URL),
-    jadi hilang saat halaman dimuat ulang. File sertifikat dikaitkan lewat kunci nama|penerbit|tahun karena
-    id sertifikat dibuat ulang setiap profil dimuat. Ganti dengan upload ke Storage dan baris tabel `documents`.
+  - File disimpan di Supabase Storage dan barisnya di tabel `documents` (lib/documents.js). Unggah dan hapus
+    langsung berlaku, tidak menunggu "Simpan Perubahan".
+  - Sertifikat juga ditambahkan ke draf profil (profiles.certifications) lewat onAddCertification, supaya bagian
+    lain yang membaca profil tetap melihatnya. Sertifikat lama yang belum punya file tetap tampil ("Belum ada file").
+    Penghubung dokumen <-> sertifikat di draf: nama|penerbit|tahun (id sertifikat di draf dibuat ulang tiap dimuat).
 */
-
-export const MAX_FILE_BYTES = 2 * 1024 * 1024;
 
 const CARD = "rounded-3xl border border-line bg-white p-6 md:p-8";
 const CARD_TITLE = "flex items-center gap-3 text-xl font-semibold text-ink";
@@ -36,24 +35,10 @@ const KIND_BADGE = {
   portfolio: { label: "Portofolio", className: "bg-blue-50 text-blue-700" },
 };
 
-function formatSize(bytes) {
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  return `${(bytes / (1024 * 1024)).toLocaleString("id-ID", { maximumFractionDigits: 1 })} MB`;
-}
-
-/** Pesan kesalahan untuk file yang dipilih, atau "" jika file boleh dipakai. */
-export function validatePdf(file) {
-  if (!file) return "Pilih file PDF terlebih dahulu.";
-  const isPdf = file.type ? file.type === "application/pdf" : /\.pdf$/i.test(file.name);
-  if (!isPdf) return "Hanya file PDF yang diperbolehkan.";
-  if (file.size > MAX_FILE_BYTES) return `Ukuran file ${formatSize(file.size)} melebihi batas 2 MB.`;
-  return "";
-}
-
 const baseName = (file) => (file ? file.name.replace(/\.pdf$/i, "") : "");
 
-// Kunci penghubung sertifikat -> file (lihat TODO di atas).
 const certKey = (cert) => [cert.name, cert.issuer, cert.year].map((v) => String(v ?? "").trim().toLowerCase()).join("|");
+const docCertKey = (doc) => certKey({ name: doc.title, issuer: doc.issuer, year: doc.year });
 
 function DocumentDialog({ initialFile, onClose, onSubmit }) {
   const ref = useRef(null);
@@ -65,6 +50,7 @@ function DocumentDialog({ initialFile, onClose, onSubmit }) {
   const [year, setYear] = useState("");
   const [title, setTitle] = useState(() => (initialFile && !validatePdf(initialFile) ? baseName(initialFile) : ""));
   const [askAi, setAskAi] = useState(true);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
@@ -85,8 +71,9 @@ function DocumentDialog({ initialFile, onClose, onSubmit }) {
     setTitle((current) => current || baseName(picked));
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
+    if (busy) return;
     const fileProblem = validatePdf(file);
     if (fileProblem) return setError(fileProblem);
 
@@ -97,15 +84,21 @@ function DocumentDialog({ initialFile, onClose, onSubmit }) {
       return setError("Judul portofolio wajib diisi.");
     }
 
-    onSubmit({
+    setError("");
+    setBusy(true);
+    const result = await onSubmit({
       kind,
       file,
-      name: name.trim(),
-      issuer: issuer.trim(),
-      year: year.trim(),
-      title: title.trim(),
+      title: kind === "certificate" ? name.trim() : title.trim(),
+      issuer: kind === "certificate" ? issuer.trim() : "",
+      year: kind === "certificate" ? year.trim() : "",
       askAi: kind === "certificate" && askAi,
     });
+    // Jika berhasil, kartu induk menutup dialog ini (komponen dilepas), jadi hanya kegagalan yang ditangani.
+    if (!result.ok) {
+      setError(result.error);
+      setBusy(false);
+    }
   }
 
   return (
@@ -114,7 +107,7 @@ function DocumentDialog({ initialFile, onClose, onSubmit }) {
       aria-labelledby="document-dialog-title"
       onClose={onClose}
       onClick={(e) => {
-        if (e.target === ref.current) ref.current.close();
+        if (e.target === ref.current && !busy) ref.current.close();
       }}
       className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-3xl border border-line bg-white p-0 shadow-xl backdrop:bg-black/40"
     >
@@ -124,7 +117,7 @@ function DocumentDialog({ initialFile, onClose, onSubmit }) {
         </h2>
 
         <div className="mt-6 space-y-5">
-          <fieldset>
+          <fieldset disabled={busy}>
             <legend className="mb-2 text-sm font-semibold text-ink">Jenis dokumen</legend>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {[
@@ -164,13 +157,14 @@ function DocumentDialog({ initialFile, onClose, onSubmit }) {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-ink">{file.name}</p>
-                  <p className="text-xs text-ink/70">{formatSize(file.size)} • siap disimpan</p>
+                  <p className="text-xs text-ink/70">{formatSize(file.size)} • siap diunggah</p>
                 </div>
                 <button
                   type="button"
                   aria-label="Hapus file yang dipilih"
+                  disabled={busy}
                   onClick={() => setFile(null)}
-                  className="grid size-8 place-items-center rounded-full text-red-600 hover:bg-white focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:outline-none"
+                  className="grid size-8 place-items-center rounded-full text-red-600 hover:bg-white focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:outline-none disabled:opacity-50"
                 >
                   <X className="size-4" aria-hidden="true" />
                 </button>
@@ -190,14 +184,14 @@ function DocumentDialog({ initialFile, onClose, onSubmit }) {
                 <label htmlFor="doc-name" className="mb-1.5 block text-sm font-semibold text-ink">
                   Nama Sertifikasi
                 </label>
-                <input id="doc-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={200} className={INPUT} />
+                <input id="doc-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={200} disabled={busy} className={INPUT} />
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_8rem]">
                 <div>
                   <label htmlFor="doc-issuer" className="mb-1.5 block text-sm font-semibold text-ink">
                     Penerbit
                   </label>
-                  <input id="doc-issuer" value={issuer} onChange={(e) => setIssuer(e.target.value)} maxLength={120} className={INPUT} />
+                  <input id="doc-issuer" value={issuer} onChange={(e) => setIssuer(e.target.value)} maxLength={120} disabled={busy} className={INPUT} />
                 </div>
                 <div>
                   <label htmlFor="doc-year" className="mb-1.5 block text-sm font-semibold text-ink">
@@ -210,12 +204,19 @@ function DocumentDialog({ initialFile, onClose, onSubmit }) {
                     inputMode="numeric"
                     maxLength={4}
                     placeholder="2023"
+                    disabled={busy}
                     className={INPUT}
                   />
                 </div>
               </div>
               <label className="flex cursor-pointer items-start gap-3 rounded-2xl bg-amber-50 px-4 py-3 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-brand/30">
-                <input type="checkbox" checked={askAi} onChange={(e) => setAskAi(e.target.checked)} className="mt-1 size-4 accent-brand" />
+                <input
+                  type="checkbox"
+                  checked={askAi}
+                  onChange={(e) => setAskAi(e.target.checked)}
+                  disabled={busy}
+                  className="mt-1 size-4 accent-brand"
+                />
                 <span className="text-sm">
                   <span className="inline-flex items-center gap-1.5 font-semibold text-ink">
                     <Sparkles className="size-3.5 text-ai" aria-hidden="true" />
@@ -232,7 +233,7 @@ function DocumentDialog({ initialFile, onClose, onSubmit }) {
               <label htmlFor="doc-title" className="mb-1.5 block text-sm font-semibold text-ink">
                 Judul Portofolio
               </label>
-              <input id="doc-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={150} className={INPUT} />
+              <input id="doc-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={150} disabled={busy} className={INPUT} />
             </div>
           )}
         </div>
@@ -247,13 +248,14 @@ function DocumentDialog({ initialFile, onClose, onSubmit }) {
           <Button
             type="button"
             variant="outline"
+            disabled={busy}
             onClick={() => ref.current?.close()}
             className="h-11 rounded-full border-brand bg-white px-6 text-sm font-semibold text-brand hover:bg-brand-light hover:text-brand"
           >
             Batal
           </Button>
-          <Button type="submit" className="h-11 rounded-full bg-brand px-6 text-sm font-semibold hover:bg-brand/90">
-            Simpan
+          <Button type="submit" disabled={busy} className="h-11 rounded-full bg-brand px-6 text-sm font-semibold hover:bg-brand/90">
+            {busy ? "Mengunggah…" : "Simpan"}
           </Button>
         </div>
       </form>
@@ -261,38 +263,35 @@ function DocumentDialog({ initialFile, onClose, onSubmit }) {
   );
 }
 
-export function DocumentsSection({ certifications, onAddCertification, onDeleteCertification }) {
+export function DocumentsSection({ certifications, onAddCertification, onDeleteCertification, onRemoveCertificationFromDraft }) {
   const [tab, setTab] = useState("all");
-  const [portfolios, setPortfolios] = useState([]); // { id, title, name, size, url }
-  const [certFiles, setCertFiles] = useState({}); // certKey -> { name, size, url }
+  const [docs, setDocs] = useState([]); // dokumen dari tabel `documents`
+  const [status, setStatus] = useState("loading"); // "loading" | "ready" | "error"
   const [modal, setModal] = useState(null); // null | { key, file }
   const [dragging, setDragging] = useState(false);
   const [notice, setNotice] = useState("");
-  const urlsRef = useRef(new Set());
+  const [actionError, setActionError] = useState("");
+  const [busyId, setBusyId] = useState(null); // id dokumen yang sedang dibuka / dihapus
 
-  // Lepas semua blob URL saat kartu ditutup.
   useEffect(() => {
-    const urls = urlsRef.current;
+    let alive = true;
+    listDocuments().then((res) => {
+      if (!alive) return;
+      if (res.ok) {
+        setDocs(res.docs);
+        setStatus("ready");
+      } else {
+        setStatus("error");
+      }
+    });
     return () => {
-      urls.forEach((url) => URL.revokeObjectURL(url));
-      urls.clear();
+      alive = false;
     };
   }, []);
 
-  function makeUrl(file) {
-    const url = URL.createObjectURL(file);
-    urlsRef.current.add(url);
-    return url;
-  }
-
-  function dropUrl(url) {
-    if (!url) return;
-    URL.revokeObjectURL(url);
-    urlsRef.current.delete(url);
-  }
-
   function openModal(file = null) {
     setNotice("");
+    setActionError("");
     setModal({ key: Date.now(), file });
   }
 
@@ -301,43 +300,94 @@ export function DocumentsSection({ certifications, onAddCertification, onDeleteC
     setDragging(false);
     const files = Array.from(e.dataTransfer?.files ?? []);
     if (files.length === 0) return;
-    if (files.length > 1) setNotice("Tambahkan satu dokumen per file. File pertama dipakai, sisanya bisa ditambahkan satu per satu.");
+    setActionError("");
+    setNotice(files.length > 1 ? "Tambahkan satu dokumen per file. File pertama dipakai, sisanya bisa ditambahkan satu per satu." : "");
     setModal({ key: Date.now(), file: files[0] });
   }
 
-  function handleSubmit(doc) {
-    const url = makeUrl(doc.file);
-    if (doc.kind === "certificate") {
-      const cert = { name: doc.name, issuer: doc.issuer, year: doc.year };
-      const key = certKey(cert);
-      dropUrl(certFiles[key]?.url);
-      setCertFiles((current) => ({ ...current, [key]: { name: doc.file.name, size: doc.file.size, url } }));
-      onAddCertification(cert, doc.askAi);
-    } else {
-      const id = `pf-${crypto.randomUUID()}`;
-      setPortfolios((current) => [{ id, title: doc.title, name: doc.file.name, size: doc.file.size, url }, ...current]);
+  async function handleSubmit(input) {
+    const result = await uploadDocument(input);
+    if (!result.ok) return result;
+
+    setDocs((current) => [result.doc, ...current]);
+    if (input.kind === "certificate") {
+      onAddCertification({ name: input.title, issuer: input.issuer, year: input.year }, input.askAi);
     }
     setModal(null);
+    return result;
   }
 
-  function deletePortfolio(item) {
+  async function viewDocument(item) {
+    setActionError("");
+    setBusyId(item.id);
+    // Buka tab kosong dulu (masih dalam klik user) supaya tidak diblokir pop-up, lalu arahkan ke tautan bertanda tangan.
+    const tabRef = window.open("about:blank", "_blank");
+    const result = await createDocumentUrl(item.doc.filePath);
+    setBusyId(null);
+    if (!result.ok) {
+      tabRef?.close();
+      setActionError(result.error);
+      return;
+    }
+    if (tabRef) {
+      tabRef.opener = null;
+      tabRef.location.href = result.url;
+    } else {
+      window.open(result.url, "_blank", "noopener,noreferrer");
+    }
+  }
+
+  async function removeItem(item) {
+    if (item.source === "legacy") {
+      onDeleteCertification(item.cert); // konfirmasi ada di page.js
+      return;
+    }
     if (!window.confirm(`Hapus "${item.title}"?`)) return;
-    dropUrl(item.file.url);
-    setPortfolios((current) => current.filter((p) => p.id !== item.id));
+
+    setActionError("");
+    setBusyId(item.id);
+    const result = await deleteDocument(item.doc);
+    setBusyId(null);
+    if (!result.ok) {
+      setActionError(result.error);
+      return;
+    }
+    setDocs((current) => current.filter((d) => d.id !== item.id));
+    if (item.type === "certificate") {
+      const match = certifications.find((cert) => certKey(cert) === docCertKey(item.doc));
+      if (match) onRemoveCertificationFromDraft(match.id);
+    }
   }
 
+  // Sertifikat di draf profil yang belum punya file ikut ditampilkan (data lama).
+  const docCertKeys = new Set(docs.filter((d) => d.kind === "certificate").map(docCertKey));
   const items = [
-    ...certifications.map((cert) => ({
-      type: "certificate",
-      id: cert.id,
-      title: cert.name,
-      meta: [cert.issuer, cert.year].filter(Boolean).join(" • "),
-      file: certFiles[certKey(cert)] ?? null,
-      cert,
+    ...docs.map((doc) => ({
+      source: "doc",
+      type: doc.kind,
+      id: doc.id,
+      title: doc.title,
+      meta: doc.kind === "certificate" ? [doc.issuer, doc.year].filter(Boolean).join(" • ") : "Portofolio",
+      fileSize: doc.fileSize,
+      doc,
     })),
-    ...portfolios.map((p) => ({ type: "portfolio", id: p.id, title: p.title, meta: "Portofolio", file: p })),
+    ...certifications
+      .filter((cert) => !docCertKeys.has(certKey(cert)))
+      .map((cert) => ({
+        source: "legacy",
+        type: "certificate",
+        id: cert.id,
+        title: cert.name,
+        meta: [cert.issuer, cert.year].filter(Boolean).join(" • "),
+        fileSize: null,
+        cert,
+      })),
   ];
-  const counts = { all: items.length, certificate: certifications.length, portfolio: portfolios.length };
+  const counts = {
+    all: items.length,
+    certificate: items.filter((i) => i.type === "certificate").length,
+    portfolio: items.filter((i) => i.type === "portfolio").length,
+  };
   const visible = tab === "all" ? items : items.filter((item) => item.type === tab);
 
   return (
@@ -381,7 +431,7 @@ export function DocumentsSection({ certifications, onAddCertification, onDeleteC
         <ul className="mt-5 space-y-3">
           {visible.map((item) => (
             <li
-              key={`${item.type}-${item.id}`}
+              key={`${item.source}-${item.id}`}
               className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-line px-4 py-3.5"
             >
               <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-red-50 text-xs font-bold text-red-600">PDF</span>
@@ -393,27 +443,28 @@ export function DocumentsSection({ certifications, onAddCertification, onDeleteC
                   </span>
                 </h3>
                 <p className="mt-0.5 text-sm text-ink/70">
-                  {[item.meta, item.file ? formatSize(item.file.size) : "Belum ada file"].filter(Boolean).join(" • ")}
+                  {[item.meta, item.fileSize ? formatSize(item.fileSize) : "Belum ada file"].filter(Boolean).join(" • ")}
                 </p>
               </div>
               <div className="flex items-center gap-4 text-sm font-semibold">
-                {item.file && (
-                  <a
-                    href={item.file.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                {item.source === "doc" && (
+                  <button
+                    type="button"
                     aria-label={`Lihat ${item.title}`}
-                    className="inline-flex min-h-9 items-center gap-1.5 text-brand hover:underline focus-visible:ring-3 focus-visible:ring-brand/30 focus-visible:outline-none"
+                    disabled={busyId === item.id}
+                    onClick={() => viewDocument(item)}
+                    className="inline-flex min-h-9 items-center gap-1.5 text-brand hover:underline focus-visible:ring-3 focus-visible:ring-brand/30 focus-visible:outline-none disabled:opacity-50"
                   >
                     <FileText className="size-4" aria-hidden="true" />
                     Lihat
-                  </a>
+                  </button>
                 )}
                 <button
                   type="button"
                   aria-label={`Hapus ${item.title}`}
-                  onClick={() => (item.type === "certificate" ? onDeleteCertification(item.cert) : deletePortfolio(item))}
-                  className="inline-flex min-h-9 items-center gap-1.5 text-red-600 hover:underline focus-visible:ring-3 focus-visible:ring-red-300 focus-visible:outline-none"
+                  disabled={busyId === item.id}
+                  onClick={() => removeItem(item)}
+                  className="inline-flex min-h-9 items-center gap-1.5 text-red-600 hover:underline focus-visible:ring-3 focus-visible:ring-red-300 focus-visible:outline-none disabled:opacity-50"
                 >
                   <Trash2 className="size-4" aria-hidden="true" />
                   Hapus
@@ -423,8 +474,23 @@ export function DocumentsSection({ certifications, onAddCertification, onDeleteC
           ))}
         </ul>
       ) : (
-        <p className="mt-5 text-sm text-ink/70">
-          {tab === "all" ? "Belum ada dokumen. Tambahkan sertifikat atau portofolio Anda." : "Belum ada dokumen di kategori ini."}
+        <p className="mt-5 text-sm text-ink/70" role={status === "loading" ? "status" : undefined}>
+          {status === "loading"
+            ? "Memuat dokumen…"
+            : tab === "all"
+              ? "Belum ada dokumen. Tambahkan sertifikat atau portofolio Anda."
+              : "Belum ada dokumen di kategori ini."}
+        </p>
+      )}
+
+      {status === "error" && (
+        <p role="alert" className="mt-3 text-sm font-medium text-red-600">
+          Dokumen yang sudah diunggah tidak dapat dimuat. Muat ulang halaman untuk mencoba lagi.
+        </p>
+      )}
+      {actionError && (
+        <p role="alert" className="mt-3 text-sm font-medium text-red-600">
+          {actionError}
         </p>
       )}
 

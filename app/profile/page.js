@@ -725,6 +725,7 @@ export default function ProfilePage() {
               certifications={p.certifications}
               onAddCertification={handleAddCertificate}
               onDeleteCertification={(cert) => handleDelete(deleteCertification, cert.id, cert.name)}
+              onRemoveCertificationFromDraft={(id) => setDraft((current) => deleteCertification(current, id))}
             />
           </div>
 
