@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ScrollLink } from "@/components/jobs/scroll-link";
 import { ArrowRight, BookOpen, Check, CheckCircle2, X } from "lucide-react";
 
+import { learningPathHref } from "@/app/api/learning/route";
 import { cn } from "@/lib/utils";
 import { useHasApplied } from "@/lib/demo-history";
 import { groupSkills } from "@/lib/skill-groups";
@@ -136,7 +137,7 @@ export function MatchSkillGapCard({ job, planHref }) {
 
       {hasGap && !noTraining && (
         <Link
-          href="/learning-path"
+          href={learningPathHref(job.id)}
           className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-white text-[13px] font-bold text-brand transition-colors hover:bg-brand-light"
         >
           <BookOpen className="size-4" aria-hidden="true" />

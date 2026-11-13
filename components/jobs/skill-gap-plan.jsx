@@ -142,17 +142,25 @@ export function SkillGapPlan({ job }) {
 
       <div className="mt-3 rounded-lg bg-surface p-4">
         {technicalGap.length > 0 ? (
-          <>
-            <h3 className={GROUP_LABEL}>
-              {technicalGap.length} {g.structured ? "keterampilan teknis" : "keterampilan"} perlu dilengkapi
-            </h3>
-            <p className="mt-1 text-xs text-ink/70">Diurutkan dari yang paling banyak diminta lowongan lain.</p>
+          // Bisa dilipat seperti blok "Keterampilan yang sudah dimiliki" (elemen <details>, tanpa JavaScript).
+          // Bawaannya terbuka supaya daftar prioritas langsung terlihat.
+          <details open className="group">
+            <summary className="relative block cursor-pointer list-none rounded pr-8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand [&::-webkit-details-marker]:hidden">
+              <h3 className={GROUP_LABEL}>
+                {technicalGap.length} {g.structured ? "keterampilan teknis" : "keterampilan"} perlu dilengkapi
+              </h3>
+              <span className="mt-1 block text-xs text-ink/70">Diurutkan dari yang paling banyak diminta lowongan lain.</span>
+              <ChevronDown
+                className="absolute right-0 top-0 size-4 shrink-0 text-ink/60 transition-transform group-open:rotate-180"
+                aria-hidden="true"
+              />
+            </summary>
             <ol className="mt-4 space-y-5">
               {technicalGap.map((s, i) => (
                 <GapRow key={s.id} skill={s} index={i + 1} />
               ))}
             </ol>
-          </>
+          </details>
         ) : (
           <p className="flex items-center gap-2 text-[13px] font-semibold text-ink">
             <span className="grid size-4 shrink-0 place-items-center rounded-full bg-emerald-500 text-white">
