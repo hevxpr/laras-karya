@@ -46,9 +46,11 @@ import {
   parseLocation,
 } from "./actions";
 import { loadMyProfile, saveMyProfile } from "./data-actions";
+import { suggestSkillsFromCertificate } from "./skill-actions";
 
 import { LinkedinIcon } from "@/components/icons";
 import { Footer } from "@/components/layout/footer";
+import { DocumentsSection } from "@/components/profile/documents-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PROFILE, PROFILE_REMAINING } from "@/lib/profile-data";
@@ -282,6 +284,9 @@ export default function ProfilePage() {
   const [toast, setToast] = useState("");
   const [resumes, setResumes] = useState([]);
   const [generating, setGenerating] = useState(false);
+  // Saran keahlian AI dari sertifikat yang baru ditambahkan: { status: "idle" | "loading" | "done", source, labels }.
+  const [aiSkills, setAiSkills] = useState({ status: "idle", source: "", labels: [] });
+  const aiRequestRef = useRef(0);
   const dialogRef = useRef(null);
 
   const p = draft;
@@ -335,6 +340,44 @@ export default function ProfilePage() {
 
     setDraft((current) => ACTIONS[type][mode](current, formData, id));
     setDialog(null);
+
+    if (type === "certification" && mode === "add") {
+      suggestSkillsForCertificate(String(formData.get("name") ?? ""), String(formData.get("issuer") ?? ""));
+    }
+  }
+
+  // Sertifikat baru dari kartu "Tambah Dokumen": masuk ke draf profil (disimpan lewat Simpan Perubahan).
+  function handleAddCertificate({ name, issuer, year }, askAi) {
+    const id = `cert-new-${crypto.randomUUID()}`;
+    setDraft((current) => ({ ...current, certifications: [...current.certifications, { id, name, issuer, year }] }));
+    if (askAi) suggestSkillsForCertificate(name, issuer);
+  }
+
+  // Minta saran keahlian dari nama sertifikat. Jika gagal, diam saja: sertifikat tetap tertambah.
+  // Penghitung permintaan memastikan jawaban lama tidak menimpa yang lebih baru.
+  async function suggestSkillsForCertificate(name, issuer) {
+    const requestId = ++aiRequestRef.current;
+    setAiSkills({ status: "loading", source: name, labels: [] });
+    let labels = [];
+    try {
+      const res = await suggestSkillsFromCertificate({ name, issuer });
+      if (res.ok) labels = res.labels;
+    } catch {
+      // abaikan
+    }
+    if (requestId !== aiRequestRef.current) return;
+    setAiSkills(labels.length > 0 ? { status: "done", source: name, labels } : { status: "idle", source: "", labels: [] });
+  }
+
+  function addSuggestedSkill(label) {
+    const formData = new FormData();
+    formData.set("label", label);
+    setDraft((current) => addSkill(current, formData));
+  }
+
+  function dismissAiSkills() {
+    aiRequestRef.current += 1;
+    setAiSkills({ status: "idle", source: "", labels: [] });
   }
 
   function handleDelete(deleteAction, id, label) {
@@ -394,6 +437,10 @@ export default function ProfilePage() {
       </main>
     );
   }
+
+  // Saran AI yang belum dimiliki user (skill yang sudah ada tidak ditawarkan lagi).
+  const ownedSkills = new Set(p.skills.map((skill) => skill.label.toLowerCase()));
+  const freshAiSkills = aiSkills.labels.filter((label) => !ownedSkills.has(label.toLowerCase()));
 
   return (
     <main className="flex-1 bg-surface">
@@ -674,67 +721,12 @@ export default function ProfilePage() {
             </section>
 
             {/* Sertifikasi & portofolio */}
-            <section aria-labelledby="sertifikasi-title" className={CARD}>
-              <header className="flex flex-wrap items-center justify-between gap-3">
-                <h2 id="sertifikasi-title" className={CARD_TITLE}>
-                  <span className={CARD_ICON}>
-                    <Award className="size-5" aria-hidden="true" />
-                  </span>
-                  Sertifikasi &amp; Portofolio
-                </h2>
-                <Button type="button" variant="outline" onClick={() => openDialog("certification", "add")} className={PILL_BUTTON}>
-                  <Plus className="size-4" aria-hidden="true" />
-                  Tambah Sertifikasi
-                </Button>
-              </header>
-              <div className="mt-6">
-                {p.certifications.length > 0 && (
-                  <ul className="divide-y divide-line">
-                    {p.certifications.map((cert) => (
-                      <li key={cert.id} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4 first:pt-0">
-                        <div className="min-w-0">
-                          <h3 className="text-base font-semibold text-ink">{cert.name}</h3>
-                          <p className="text-sm text-ink/70">
-                            {cert.issuer}
-                            {cert.year && ` • ${cert.year}`}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm font-semibold">
-                          <a href="#" className="inline-flex min-h-9 items-center gap-1.5 text-brand underline underline-offset-2">
-                            <FileText className="size-4" aria-hidden="true" />
-                            Lihat Sertifikat
-                          </a>
-                          <button
-                            type="button"
-                            aria-label={`Edit ${cert.name}`}
-                            onClick={() => openDialog("certification", "edit", cert.id)}
-                            className={EDIT_LINK}
-                          >
-                            <Pencil className="size-4" aria-hidden="true" />
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`Hapus ${cert.name}`}
-                            onClick={() => handleDelete(deleteCertification, cert.id, cert.name)}
-                            className={DELETE_LINK}
-                          >
-                            <Trash2 className="size-4" aria-hidden="true" />
-                            Hapus
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                <label className="mt-4 flex cursor-pointer flex-col items-center gap-3 rounded-2xl border border-dashed border-brand bg-white px-6 py-8 text-center text-sm text-ink/80 transition-colors focus-within:ring-3 focus-within:ring-brand/30 hover:bg-brand-light/50">
-                  <UploadCloud className="size-6 text-brand" aria-hidden="true" />
-                  <span>Seret file PDF atau klik untuk mengunggah portofolio</span>
-                  <input type="file" accept="application/pdf" className="sr-only" />
-                </label>
-              </div>
-            </section>
+            <DocumentsSection
+              certifications={p.certifications}
+              onAddCertification={handleAddCertificate}
+              onDeleteCertification={(cert) => handleDelete(deleteCertification, cert.id, cert.name)}
+              onRemoveCertificationFromDraft={(id) => setDraft((current) => deleteCertification(current, id))}
+            />
           </div>
 
           <div className="space-y-6">
@@ -826,6 +818,43 @@ export default function ProfilePage() {
                   </ul>
                 ) : (
                   <p className="text-sm text-ink/70">Belum ada keahlian. Tambahkan untuk meningkatkan rekomendasi AI.</p>
+                )}
+
+                {aiSkills.status === "loading" && (
+                  <p className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-ai" role="status">
+                    <Sparkles className="size-3.5 motion-safe:animate-pulse" aria-hidden="true" />
+                    AI sedang membaca sertifikat “{aiSkills.source}”…
+                  </p>
+                )}
+                {aiSkills.status === "done" && freshAiSkills.length > 0 && (
+                  <div className="mt-4">
+                    <div className="mb-2 flex items-start justify-between gap-3">
+                      <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-ai">
+                        <Sparkles className="size-3.5" aria-hidden="true" />
+                        Disarankan AI dari sertifikat “{aiSkills.source}”:
+                      </p>
+                      <button
+                        type="button"
+                        onClick={dismissAiSkills}
+                        className="text-xs font-semibold text-ink/70 hover:underline focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none"
+                      >
+                        Tutup
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {freshAiSkills.map((label) => (
+                        <button
+                          key={label}
+                          type="button"
+                          onClick={() => addSuggestedSkill(label)}
+                          className="inline-flex items-center gap-1 rounded-full border border-ai/40 bg-pink-50 px-3 py-1.5 text-[13px] hover:border-ai"
+                        >
+                          <Plus className="size-3.5" aria-hidden="true" />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             </section>

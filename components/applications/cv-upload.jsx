@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, FileText, RefreshCw, Trash2, Upload } from "lucide-react";
+import { Upload } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { NewChip, PdfBadge } from "./file-row";
 
 const ACCEPT = ".pdf,.doc,.docx";
 const ALLOWED_EXT = ["pdf", "doc", "docx"];
@@ -23,10 +24,55 @@ export function cvFileProblem(file, maxMb) {
   return null;
 }
 
+/** Dua pilihan sumber CV: pakai data profil atau unggah CV sendiri. */
+export function CvSourceTabs({ value, onChange, maxMb = 5 }) {
+  const options = [
+    { id: "profile", title: "Pakai data dari profil", desc: "CV dibuat otomatis dari profil Laras Karya-mu" },
+    { id: "upload", title: "Unggah CV sendiri", desc: `PDF, DOC, atau DOCX • maks. ${maxMb} MB` },
+  ];
+  return (
+    <div role="radiogroup" aria-label="Sumber CV" className="mt-4 grid gap-3 sm:grid-cols-2">
+      {options.map((o) => {
+        const active = value === o.id;
+        return (
+          <label
+            key={o.id}
+            className={cn(
+              "flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3.5 transition",
+              active ? "border-brand bg-brand-light" : "border-slate-200 bg-white hover:border-brand/50",
+            )}
+          >
+            <input
+              type="radio"
+              name="cv-source"
+              value={o.id}
+              checked={active}
+              onChange={() => onChange(o.id)}
+              className="peer sr-only"
+            />
+            <span
+              aria-hidden
+              className={cn(
+                "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border-2 peer-focus-visible:ring-2 peer-focus-visible:ring-brand/40",
+                active ? "border-brand" : "border-slate-300",
+              )}
+            >
+              {active && <span className="size-2.5 rounded-full bg-brand" />}
+            </span>
+            <span>
+              <span className="block font-semibold text-ink">{o.title}</span>
+              <span className="block text-xs text-slate-600">{o.desc}</span>
+            </span>
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
  * Unggah CV: pilih file lewat tombol atau seret ke kotak, lalu tampilkan nama & ukurannya.
- * File hanya disimpan di state halaman (belum dikirim ke server).
- * BACKEND (nanti): unggah ke Supabase Storage, lalu simpan URL-nya ke applications.resume_url.
+ * File disimpan di state halaman dan baru diunggah ke Storage saat lamaran dikirim (lib/application-storage.js).
  *
  * Props:
  * - file: File | null, onChange(file | null)
@@ -43,18 +89,8 @@ export function CvUpload({ file, onChange, inputRef, maxMb = 5 }) {
     if (!problem) onChange(picked);
   }
 
-  function openPreview() {
-    // PDF bisa dilihat langsung di tab baru; URL sementara dilepas setelah dibuka
-    const url = URL.createObjectURL(file);
-    window.open(url, "_blank", "noopener,noreferrer");
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  }
-
-  const isPdf = file?.name.toLowerCase().endsWith(".pdf");
-
   return (
-    <div className="mt-5">
-      <p className="text-sm text-slate-600">File CV</p>
+    <div className="mt-4">
       <input
         ref={inputRef}
         id="cv-file"
@@ -68,30 +104,18 @@ export function CvUpload({ file, onChange, inputRef, maxMb = 5 }) {
       />
 
       {file ? (
-        <div className="mt-1.5 flex flex-wrap items-center gap-3 rounded-xl border border-brand/30 bg-brand-light/60 px-4 py-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-white text-brand">
-            <FileText className="size-5" aria-hidden />
-          </span>
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-brand bg-brand-light/40 px-4 py-3">
+          <PdfBadge />
           <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold text-ink">{file.name}</p>
-            <p className="text-xs text-slate-600">{formatFileSize(file.size)} · siap dilampirkan</p>
+            <p className="flex flex-wrap items-center gap-2 font-semibold text-ink">
+              <span className="truncate">{file.name}</span>
+              <NewChip />
+            </p>
+            <p className="text-xs text-slate-600">{formatFileSize(file.size)} • diunggah barusan</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {isPdf && (
-              <button
-                type="button"
-                onClick={openPreview}
-                className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-brand px-3.5 text-xs font-semibold text-brand transition hover:bg-white"
-              >
-                <Eye className="size-3.5" aria-hidden /> Lihat
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-brand px-3.5 text-xs font-semibold text-brand transition hover:bg-white"
-            >
-              <RefreshCw className="size-3.5" aria-hidden /> Ganti
+          <div className="flex items-center gap-4 text-sm font-semibold">
+            <button type="button" onClick={() => inputRef.current?.click()} className="text-brand hover:underline">
+              Ganti
             </button>
             <button
               type="button"
@@ -100,9 +124,9 @@ export function CvUpload({ file, onChange, inputRef, maxMb = 5 }) {
                 setError("");
               }}
               aria-label={`Hapus CV ${file.name}`}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold text-red-700 transition hover:bg-red-50"
+              className="text-red-700 hover:underline"
             >
-              <Trash2 className="size-3.5" aria-hidden /> Hapus
+              Hapus
             </button>
           </div>
         </div>
@@ -119,7 +143,7 @@ export function CvUpload({ file, onChange, inputRef, maxMb = 5 }) {
             accept(e.dataTransfer.files?.[0]);
           }}
           className={cn(
-            "mt-1.5 flex flex-col items-center gap-3 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors",
+            "flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed px-4 py-6 text-center transition-colors",
             dragging ? "border-brand bg-brand-light" : "border-slate-300 bg-surface",
           )}
         >

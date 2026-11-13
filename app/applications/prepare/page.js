@@ -6,7 +6,7 @@ import { loadMyProfile } from "@/app/profile/data-actions";
 import { toApplicant } from "@/lib/applicant-mapping";
 import { isUuid } from "@/lib/is-uuid";
 import { fetchJobDetail } from "@/lib/job-detail-db";
-import { MOCK_APPLICANT } from "@/lib/mock-applicant";
+//import { MOCK_APPLICANT, MOCK_CERTIFICATIONS, MOCK_PORTFOLIOS } from "@/lib/mock-applicant";
 import { JOBS } from "@/lib/mock-jobs";
 import { loginTo } from "@/lib/routes";
 import { getCurrentUser } from "@/lib/session";
@@ -15,6 +15,10 @@ export const metadata = {
   title: "Persiapan Lamaran | Laras Karya",
   description: "Lengkapi dan periksa dokumen Anda sebelum sebelum mengirim Lamaran.",
 };
+
+const SHORT_MONTHS = { Januari: "Jan", Februari: "Feb", Agustus: "Agu", Oktober: "Okt", Desember: "Des", September: "Sep", November: "Nov" };
+/** "30 November 2026" -> "30 Nov 2026" (bulan lain sudah pendek atau tetap utuh). */
+const shortDate = (text) => (text ? String(text).replace(/[A-Za-z]+/, (m) => SHORT_MONTHS[m] ?? m) : undefined);
 
 /** Detail lowongan dari database -> bentuk yang dipakai formulir persiapan (sama dengan lib/mock-jobs.js). */
 function toPrepareJob(detail) {
@@ -26,6 +30,7 @@ function toPrepareJob(detail) {
     status: detail.isOpen ? "dibuka" : "ditutup",
     mode: detail.workMode ?? "",
     city: detail.city ?? "",
+    deadline: shortDate(detail.deadline),
   };
 }
 
@@ -64,6 +69,8 @@ async function PrepareLoader({ searchParams }) {
     lastJob: { title: MOCK_APPLICANT.lastJob.title, company: MOCK_APPLICANT.lastJob.company, period: `${MOCK_APPLICANT.lastJob.years} tahun` },
     education: MOCK_APPLICANT.education,
     skills: [],
+    certifications: MOCK_CERTIFICATIONS,
+    portfolios: MOCK_PORTFOLIOS,
     complete: true,
   };
   return <PrepareApplication job={job} applicant={applicant} />;
