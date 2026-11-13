@@ -1,7 +1,7 @@
 import { ClipboardCheck, ShieldCheck, TriangleAlert } from "lucide-react";
 
 /**
- * items: [{ key, label, done, action? }]  (action = tombol/elemen tambahan di bawah label)
+ * items: [{ key, label, done, sub?, action? }]  (sub = keterangan kecil di bawah label, action = tombol/elemen tambahan)
  */
 export default function ReadinessChecklist({ items }) {
   const total = items.length;
@@ -48,6 +48,7 @@ export default function ReadinessChecklist({ items }) {
               {i.done ? <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden /> : <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden />}
               <span>{i.label}</span>
             </div>
+            {i.sub && <p className="mt-0.5 pl-[26px] text-xs text-slate-600">{i.sub}</p>}
             {i.action && <div className="mt-2 pl-[26px]">{i.action}</div>}
           </li>
         ))}
