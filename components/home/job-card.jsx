@@ -11,6 +11,7 @@ export function JobCard({ job, featured = false }) {
     id,
     title,
     company,
+    logoUrl,
     sector,
     matchPercent,
     workMode,
@@ -29,6 +30,7 @@ export function JobCard({ job, featured = false }) {
         <CompanyAvatar
           company={company}
           sector={sector}
+          logoUrl={logoUrl}
           className="h-10 w-10 text-sm"
         />
         <div className="min-w-0 flex-1">

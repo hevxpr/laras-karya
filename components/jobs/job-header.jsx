@@ -99,6 +99,7 @@ export function JobHeader({ job }) {
         <CompanyAvatar
           company={job.company}
           sector={job.sector}
+          logoUrl={job.companyLogoUrl}
           className="size-12 text-base md:size-14 md:text-lg"
         />
 

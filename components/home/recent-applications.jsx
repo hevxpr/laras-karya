@@ -65,6 +65,7 @@ export function RecentApplications({ applications = MOCK_APPLICATIONS }) {
                 <CompanyAvatar
                   company={a.company}
                   sector={a.sector}
+                  logoUrl={a.companyLogoUrl}
                   className="h-10 w-10 text-sm"
                 />
                 <div className="min-w-0 flex-1">
