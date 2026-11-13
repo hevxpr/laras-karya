@@ -2,8 +2,11 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import PrepareApplication from "@/components/applications/prepare-application";
 import { Footer } from "@/components/layout/footer";
+import { loadMyProfile } from "@/app/profile/data-actions";
+import { toApplicant } from "@/lib/applicant-mapping";
 import { isUuid } from "@/lib/is-uuid";
 import { fetchJobDetail } from "@/lib/job-detail-db";
+import { MOCK_APPLICANT } from "@/lib/mock-applicant";
 import { JOBS } from "@/lib/mock-jobs";
 import { loginTo } from "@/lib/routes";
 import { getCurrentUser } from "@/lib/session";
@@ -28,7 +31,8 @@ function toPrepareJob(detail) {
 
 /*
   /applications/prepare?job=<id>
-  - id UUID  = lowongan dari database Supabase (wajib masuk). Status "sudah dilamar" dibaca dari tabel applications.
+  - id UUID  = lowongan dari database Supabase (wajib masuk). Status "sudah dilamar" dibaca dari tabel applications,
+               data pelamar (nama, telepon, pengalaman, pendidikan, keahlian) dari profil user (loadMyProfile).
   - id angka = data contoh untuk demo, tetap berjalan seperti sebelumnya (tanpa menyimpan ke database).
   Tanpa parameter job, sementara dipakai lowongan contoh pertama.
   searchParams dibaca di sini (server) di dalam <Suspense>, sesuai aturan Next.js 16.
@@ -41,17 +45,28 @@ async function PrepareLoader({ searchParams }) {
     const user = await getCurrentUser();
     if (!user) redirect(loginTo(`/applications/prepare?job=${raw}`));
 
-    const detail = await fetchJobDetail(raw, user);
+    // Lowongan dan profil pelamar dibaca bersamaan; profil gagal dibaca (null) tetap menghasilkan formulir yang bisa dipakai.
+    const [detail, profile] = await Promise.all([fetchJobDetail(raw, user), loadMyProfile()]);
     return (
       <PrepareApplication
         job={detail ? toPrepareJob(detail) : null}
         alreadyApplied={Boolean(detail?.applied)}
+        applicant={toApplicant(profile, user)}
       />
     );
   }
 
+  // Lowongan contoh (id angka): data pelamar contoh, seperti sebelumnya.
   const job = JOBS.find((j) => j.id === Number(raw ?? 1)) ?? null;
-  return <PrepareApplication job={job} />;
+  const applicant = {
+    name: MOCK_APPLICANT.name,
+    phone: MOCK_APPLICANT.phone,
+    lastJob: { title: MOCK_APPLICANT.lastJob.title, company: MOCK_APPLICANT.lastJob.company, period: `${MOCK_APPLICANT.lastJob.years} tahun` },
+    education: MOCK_APPLICANT.education,
+    skills: [],
+    complete: true,
+  };
+  return <PrepareApplication job={job} applicant={applicant} />;
 }
 
 export default function PrepareApplicationPage({ searchParams }) {

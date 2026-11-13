@@ -43,15 +43,16 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  href,
   ...props
 }) {
-  return (
-    <ButtonPrimitive
-      data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
-    />
-  )
+  const classes = cn(buttonVariants({ variant, size, className }))
+
+  if (href) {
+    return <a data-slot="button" href={href} className={classes} {...props} />
+  }
+
+  return <ButtonPrimitive data-slot="button" className={classes} {...props} />
 }
 
 export { Button, buttonVariants }

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { SearchX, Sparkles } from "lucide-react";
+import { ArrowRight, SearchX, Sparkles } from "lucide-react";
 import { hasApplied } from "@/lib/applications-data";
 import { useHistoryStage } from "@/lib/demo-history";
 import { getOpenJobsAppliedLast } from "@/lib/job-ordering";
@@ -68,12 +68,12 @@ function SectionTitle({ children, titleRef }) {
 }
 
 /** Membaca ?q= dari URL (mis. dari pencarian di Beranda). Dibungkus <Suspense> di halaman. */
-export function JobListFromUrl({ jobs }) {
+export function JobListFromUrl({ jobs, assessmentDone = true }) {
   const initialQuery = useSearchParams().get("q") ?? "";
-  return <JobList jobs={jobs} initialQuery={initialQuery} />;
+  return <JobList jobs={jobs} initialQuery={initialQuery} assessmentDone={assessmentDone} />;
 }
 
-export default function JobList({ jobs = [], initialQuery = "" }) {
+export default function JobList({ jobs = [], initialQuery = "", assessmentDone = true }) {
   const stage = useHistoryStage();
   const history = stage === "riwayat";
   const openJobs = useMemo(
@@ -150,18 +150,34 @@ export default function JobList({ jobs = [], initialQuery = "" }) {
   }
 
   // Belum ada satu pun rekomendasi untuk user ini (bukan hasil filter/pencarian).
+  // Yang belum asesmen diajak mulai (tombol utama); yang sudah asesmen diarahkan ke Beranda, tempat tombol
+  // Perbarui Rekomendasi berada. Mengulang asesmen bukan cara memperbarui rekomendasi.
   if (jobs.length === 0) {
-    return (
+    return assessmentDone ? (
+      <EmptyState
+        icon={Sparkles}
+        title="Belum ada lowongan yang cocok saat ini"
+        text="Buka Beranda, lalu tekan Perbarui Rekomendasi untuk menghitung ulang."
+      >
+        <Link
+          href="/home"
+          className="inline-flex rounded-full border border-brand px-5 py-2.5 text-sm font-semibold text-brand transition hover:bg-brand-light"
+        >
+          Ke Beranda
+        </Link>
+      </EmptyState>
+    ) : (
       <EmptyState
         icon={Sparkles}
         title="Belum ada rekomendasi untuk Anda"
-        text="Rekomendasi muncul setelah asesmen karier selesai dan profil Anda terisi. Bila sudah, coba muat ulang halaman ini."
+        text="Jawab asesmen singkat untuk membuka rekomendasi lowongan hijau yang cocok."
       >
         <Link
           href="/assessment"
-          className="rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand/90"
+          className="cta-shine group inline-flex items-center gap-2 rounded-full bg-brand px-7 py-3.5 text-base font-semibold text-white transition hover:bg-brand/90"
         >
-          Mulai asesmen
+          Mulai Asesmen
+          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden />
         </Link>
       </EmptyState>
     );
