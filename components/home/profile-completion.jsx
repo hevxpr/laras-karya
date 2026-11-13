@@ -1,14 +1,29 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
+// Paling banyak berapa bagian yang disebut; sisanya diringkas "dan N lainnya" supaya kartu tetap satu baris.
+const MAX_SHOWN = 2;
+
+/** Teks "Tersisa: ..." dari daftar bagian yang belum terisi, bobot terbesar lebih dulu. Lengkapnya ada di /profile. */
+function summarize(missing) {
+  const byWeight = [...missing].sort((a, b) => b.weight - a.weight);
+  const shown = missing.length <= MAX_SHOWN + 1 ? byWeight : byWeight.slice(0, MAX_SHOWN);
+  const rest = missing.length - shown.length;
+  const parts = shown.map((m) => `${m.label} (${m.weight}%)`);
+  if (rest > 0) return `Tersisa: ${parts.join(", ")}, dan ${rest} lainnya`;
+  return `Tersisa: ${parts.length > 1 ? `${parts.slice(0, -1).join(", ")} dan ${parts[parts.length - 1]}` : parts[0]}`;
+}
+
 /**
  * Pengingat kelengkapan profil di bawah hero, satu baris di layar sm ke atas.
  * Hilang sendiri kalau profil sudah 100%.
- * @param {{ value: number, remaining?: string }} props  persen kelengkapan, 0 sampai 100;
- *   remaining = teks bagian yang belum terisi (tampil di layar md ke atas)
+ * @param {{ value: number, missing?: {label: string, weight: number}[], remaining?: string }} props
+ *   value = persen kelengkapan, 0 sampai 100; missing = bagian yang belum terisi (diringkas di sini);
+ *   remaining = teks cadangan bila missing tidak ada. Teks tampil di layar md ke atas.
  */
-export function ProfileCompletion({ value, remaining = "" }) {
+export function ProfileCompletion({ value, missing, remaining = "" }) {
   if (value >= 100) return null;
+  const text = missing?.length ? summarize(missing) : remaining;
 
   return (
     <section
@@ -17,7 +32,7 @@ export function ProfileCompletion({ value, remaining = "" }) {
     >
       <p className="text-sm font-semibold text-ink">
         Profil Anda {value}% lengkap
-        {remaining ? <span className="ml-2 hidden font-normal text-ink/70 md:inline">{remaining}</span> : null}
+        {text ? <span className="ml-2 hidden font-normal text-ink/70 md:inline">{text}</span> : null}
       </p>
       <div
         role="progressbar"

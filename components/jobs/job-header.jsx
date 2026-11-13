@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bookmark, MapPin } from "lucide-react";
+import { Bookmark, ExternalLink, Globe, Leaf, MapPin } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -99,6 +99,7 @@ export function JobHeader({ job }) {
         <CompanyAvatar
           company={job.company}
           sector={job.sector}
+          logoUrl={job.companyLogoUrl}
           className="size-12 text-base md:size-14 md:text-lg"
         />
 
@@ -107,6 +108,19 @@ export function JobHeader({ job }) {
             {job.title}
           </h1>
           <p className="mt-0.5 text-sm font-bold text-brand">{job.company}</p>
+          {job.companyWebsite && (
+            <a
+              href={job.companyWebsite.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-0.5 inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-ink/70 hover:text-brand hover:underline md:min-h-0"
+            >
+              <Globe className="size-3.5 shrink-0" aria-hidden="true" />
+              {job.companyWebsite.label}
+              <ExternalLink className="size-3 shrink-0" aria-hidden="true" />
+              <span className="sr-only"> (website perusahaan, membuka tab baru)</span>
+            </a>
+          )}
 
           <p className="mt-1 flex items-start gap-1.5 text-xs text-ink/75">
             <MapPin className="mt-0.5 size-3.5 shrink-0 text-brand" aria-hidden="true" />
@@ -147,6 +161,12 @@ export function JobHeader({ job }) {
       <FacilityBadges benefits={job.facilities} max={job.facilities.length} className="mt-4" />
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
+        {job.isGreenJob && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+            <Leaf className="size-3" aria-hidden="true" />
+            Green Job
+          </span>
+        )}
         <span className="rounded-full bg-surface px-2.5 py-0.5 text-xs font-medium text-ink/75 ring-1 ring-inset ring-line">
           {job.employmentType}
         </span>

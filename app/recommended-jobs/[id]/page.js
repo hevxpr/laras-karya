@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 
-import { FitReasonBanner } from "@/components/jobs/fit-reason-banner";
+import { AiFitSummary } from "@/components/jobs/ai-fit-summary";
+import { FitMatchLine, FitReasonBanner } from "@/components/jobs/fit-reason-banner";
 import { JobHeader } from "@/components/jobs/job-header";
 import { JobRequirements } from "@/components/jobs/job-requirements";
 import { JobSidebarInfo } from "@/components/jobs/job-sidebar-info";
@@ -79,6 +80,14 @@ async function JobDetailContent({ params }) {
           <FitReasonBanner
             job={job}
             missingCount={countMissingSkills(job.skills)}
+            // Lowongan dari database: ringkasan AI di-stream; fallback = baris kecocokan biasa (halaman tidak menunggu AI).
+            summary={
+              isUuid(job.id) ? (
+                <Suspense fallback={<FitMatchLine job={job} />}>
+                  <AiFitSummary job={job} />
+                </Suspense>
+              ) : undefined
+            }
           />
           <JobSidebarInfo job={job} />
           <SkillGapPlan job={job} />

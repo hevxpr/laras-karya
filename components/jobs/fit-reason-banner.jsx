@@ -14,11 +14,27 @@ function matchLevel(p) {
 }
 
 /**
- * Banner "Mengapa lowongan ini cocok untuk Anda". Isinya dari lib/fit-insights.js,
- * sumber yang sama dengan kartu di /recommended-jobs, jadi keduanya selalu seirama.
+ * Baris kecocokan biasa ("Tingkat kecocokan tinggi (83%)..."). Juga dipakai sebagai cadangan
+ * bila ringkasan AI belum siap atau gagal (components/jobs/ai-fit-summary.jsx).
  * @param {{ job: import("@/lib/job-detail-data").JobDetail }} props
  */
-export function FitReasonBanner({ job }) {
+export function FitMatchLine({ job }) {
+  // Skor belum ada: penjelasannya cukup di kartu hijau (supaya tidak muncul dua kali).
+  if (job.matchPercent == null) return null;
+  return (
+    <p className="mt-2 text-xs text-ink/70">
+      {`Tingkat kecocokan ${matchLevel(job.matchPercent)} (${job.matchPercent}%), berdasarkan profil dan hasil asesmen Anda.`}
+    </p>
+  );
+}
+
+/**
+ * Banner "Mengapa lowongan ini cocok untuk Anda". Isinya dari lib/fit-insights.js,
+ * sumber yang sama dengan kartu di /recommended-jobs, jadi keduanya selalu seirama.
+ * summary (opsional) = pengganti baris kecocokan, mis. ringkasan AI di dalam <Suspense>.
+ * @param {{ job: import("@/lib/job-detail-data").JobDetail, summary?: import("react").ReactNode }} props
+ */
+export function FitReasonBanner({ job, summary }) {
   const g = groupSkills(job.skills);
   const insights = buildFitInsights({
     sector: job.sector,
@@ -51,12 +67,7 @@ export function FitReasonBanner({ job }) {
           Mengapa lowongan ini cocok untuk Anda
         </h2>
       </div>
-      {/* Skor belum ada: penjelasannya cukup di kartu hijau (supaya tidak muncul dua kali). */}
-      {job.matchPercent != null && (
-        <p className="mt-2 text-xs text-ink/70">
-          {`Tingkat kecocokan ${matchLevel(job.matchPercent)} (${job.matchPercent}%), berdasarkan profil dan hasil asesmen Anda.`}
-        </p>
-      )}
+      {summary ?? <FitMatchLine job={job} />}
 
       <ul className="mt-3 space-y-3">
         {points.map(({ id, tone, text, detail }) => (

@@ -5,6 +5,8 @@ import { HomeSearch } from "@/components/home/home-search";
 
 /*
   Hero Beranda: sapaan, judul, pencarian, satu tautan ke lowongan cocok.
+  Struktur hero sama untuk semua pengguna. Hanya dua teks yang bergantung status asesmen (assessmentDone):
+  lencana ("Halo" untuk yang belum asesmen) dan judul. Ajakan Mulai Asesmen ada di kartu di bawah hero.
   Kelengkapan profil sengaja tidak di sini; lihat components/home/profile-completion.jsx.
 
   Latar foto: taruh gambar di public/images/hero-home.jpg (export dari Figma).
@@ -17,7 +19,7 @@ import { HomeSearch } from "@/components/home/home-search";
   Cara menyetel lebar area teks yang solid: ubah via-XX% dan to-XX% pada gradasi di bawah.
   Teks berhenti sekitar 46% lebar banner, jadi hijau pekat dijaga sampai ~40% lalu habis di ~65%.
 */
-export function WelcomeBanner({ firstName, matchedJobs }) {
+export function WelcomeBanner({ firstName, matchedJobs, assessmentDone = true }) {
   return (
     <section
       aria-labelledby="welcome-title"
@@ -37,15 +39,17 @@ export function WelcomeBanner({ firstName, matchedJobs }) {
 
       <div className="relative flex min-h-[220px] max-w-xl flex-col items-start justify-center gap-4 px-6 py-6 md:min-h-[240px] md:px-10 xl:min-h-[250px] xl:px-12">
         <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-brand">
-          Selamat datang kembali, {firstName}
+          {assessmentDone ? `Selamat datang kembali, ${firstName}` : `Halo, ${firstName}`}
         </span>
         <h1
           id="welcome-title"
           className="text-[26px] font-bold leading-tight text-white md:text-3xl"
         >
-          {matchedJobs > 0
-            ? `Ada ${matchedJobs} lowongan hijau yang cocok untuk Anda`
-            : "Selesaikan asesmen untuk melihat lowongan yang cocok"}
+          {!assessmentDone
+            ? "Mulai dari asesmen untuk menemukan lowongan hijau yang cocok"
+            : matchedJobs > 0
+              ? `Ada ${matchedJobs} lowongan hijau yang cocok untuk Anda`
+              : "Perbarui rekomendasi untuk melihat lowongan yang cocok"}
         </h1>
         <HomeSearch />
         <Link

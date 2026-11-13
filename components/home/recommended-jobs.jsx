@@ -3,14 +3,14 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, RefreshCw } from "lucide-react";
+import { ArrowRight, RefreshCw, Sparkles } from "lucide-react";
 
 import { refreshRecommendations } from "@/app/home/actions";
 import { JobCard } from "@/components/home/job-card";
 import { cn } from "@/lib/utils";
 
 /** Seksi rekomendasi lowongan. Tombol "Perbarui Rekomendasi" meminta database menghitung ulang, lalu memuat ulang halaman. */
-export function RecommendedJobs({ jobs }) {
+export function RecommendedJobs({ jobs, assessmentDone = true }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [updating, setUpdating] = useState(false);
@@ -74,9 +74,30 @@ export function RecommendedJobs({ jobs }) {
       ) : null}
 
       {jobs.length === 0 && !isUpdating ? (
-        <p className="rounded-xl border border-dashed border-mint-line bg-white px-5 py-8 text-center text-sm text-ink/75">
-          Belum ada rekomendasi. Selesaikan asesmen karier, lalu tekan Perbarui Rekomendasi.
-        </p>
+        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-mint-line bg-white px-5 py-5 text-center sm:flex-row sm:text-left">
+          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand-light text-brand">
+            <Sparkles className="size-6" aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-base font-bold text-ink">
+              {assessmentDone ? "Belum ada lowongan yang cocok saat ini" : "Belum ada rekomendasi untuk Anda"}
+            </p>
+            <p className="mt-0.5 text-sm text-ink/75">
+              {assessmentDone
+                ? "Tekan Perbarui Rekomendasi untuk menghitung ulang."
+                : "Jawab asesmen singkat untuk membuka rekomendasi lowongan hijau yang cocok."}
+            </p>
+          </div>
+          {!assessmentDone ? (
+            <Link
+              href="/assessment"
+              className="cta-shine group inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-brand px-7 text-base font-semibold text-white transition hover:bg-brand/90"
+            >
+              Mulai Asesmen
+              <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+            </Link>
+          ) : null}
+        </div>
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-3" aria-busy={isUpdating}>

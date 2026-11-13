@@ -89,6 +89,7 @@ export function FeaturedJobCard({ job, hideApplied = false, selectedFacilities =
             <CompanyAvatar
               company={job.company}
               sector={job.sector}
+              logoUrl={job.companyLogoUrl}
               className="h-16 w-16 text-xl"
             />
             <div className="min-w-0">
@@ -137,7 +138,7 @@ export function JobCard({ job, selectedFacilities = [] }) {
     <article className="flex flex-col rounded-2xl border border-line bg-white p-6 shadow-sm">
       <TopRow job={job} />
       <div className="mt-4 flex items-center gap-3">
-        <CompanyAvatar company={job.company} sector={job.sector} />
+        <CompanyAvatar company={job.company} sector={job.sector} logoUrl={job.companyLogoUrl} />
         <div className="min-w-0">
           <h3 className="text-xl font-bold text-ink">{job.title}</h3>
           <p className="text-slate-600">{job.company}</p>
