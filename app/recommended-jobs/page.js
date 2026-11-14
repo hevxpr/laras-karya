@@ -6,10 +6,7 @@ import { GuestPreview } from "@/components/jobs/guest-preview";
 import { Footer } from "@/components/layout/footer";
 import { PageBanner } from "@/components/ui/page-banner";
 import { hasCompletedAssessment } from "@/lib/assessment-status";
-<<<<<<< HEAD
 import { fetchGuestPreview } from "@/lib/guest-preview-db";
-=======
->>>>>>> c5e2fed3d2a789827c54fbf733966f0ae4942fba
 import { fetchRecommendedJobs } from "@/lib/recommended-jobs-db";
 import { getCurrentUser } from "@/lib/session";
 
@@ -59,7 +56,6 @@ async function Results() {
     }
     return <GuestPreview preview={preview} />;
   }
-  if (!user) return <GuestPreview />;
   const [{ jobs, error }, assessed] = await Promise.all([fetchRecommendedJobs(user), hasCompletedAssessment(user)]);
   const assessmentDone = assessed !== false; // gagal dibaca: anggap sudah, supaya tidak salah mengajak
   if (error) {
