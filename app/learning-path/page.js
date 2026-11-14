@@ -8,8 +8,6 @@ import {
   BookOpen,
   Check,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Compass,
   ExternalLink,
@@ -17,8 +15,10 @@ import {
   X,
   Sparkle,
   Sparkles,
+  Tag,
 } from "lucide-react";
 
+import Pagination from "@/components/jobs/pagination";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SearchBar } from "@/components/ui/search-bar";
@@ -78,24 +78,13 @@ const PAGE_SIZE = 9; // 3 kolom x 3 baris
 const UDEMY_URL = "https://www.udemy.com/";
 const LEVEL_ORDER = ["Pemula", "Menengah", "Lanjutan"];
 
-/** Nomor halaman yang ditampilkan: semua bila sedikit, kalau banyak dipendekkan dengan "…". */
-function pageItems(current, total) {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const items = [1];
-  const start = Math.max(2, current - 1);
-  const end = Math.min(total - 1, current + 1);
-  if (start > 2) items.push("…");
-  for (let n = start; n <= end; n += 1) items.push(n);
-  if (end < total - 1) items.push("…");
-  items.push(total);
-  return items;
-}
-
 /**
  * Gambar sampul course (courses.image_url, 240x135 = rasio 16:9). Kotak gambar mengikuti rasio itu
  * (aspect-video) supaya gambar tidak terpotong. Bila kosong atau gagal dimuat, tampil placeholder.
+ * `children` = lencana yang diletakkan di atas gambar (posisi diatur oleh pemanggil). Saat kartu
+ * (class "group") disorot, gambar membesar sedikit.
  */
-function CourseImage({ src }) {
+function CourseImage({ src, children }) {
   const [failed, setFailed] = useState(false);
 
   return (
@@ -109,13 +98,16 @@ function CourseImage({ src }) {
           decoding="async"
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
-          className="absolute inset-0 size-full object-cover"
+          className="absolute inset-0 size-full object-cover transition-transform duration-500 motion-safe:group-hover:scale-105 motion-reduce:transition-none"
         />
       ) : (
         <span className="absolute inset-0 grid place-items-center text-brand/40">
           <BookOpen className="size-10" aria-hidden="true" />
         </span>
       )}
+      {/* Gradasi tipis di bawah supaya lencana tetap terbaca di atas gambar apa pun */}
+      <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-slate-900/40 to-transparent" />
+      {children}
     </div>
   );
 }
@@ -151,111 +143,79 @@ function LevelSelect({ value, onChange, options }) {
   );
 }
 
-function Pagination({ page, totalPages, onChange }) {
-  const base = "grid size-11 place-items-center rounded-full border text-sm font-semibold transition-colors";
-  return (
-    <nav aria-label="Halaman pelatihan" className="mt-8 flex flex-wrap items-center justify-center gap-2">
-      <button
-        type="button"
-        onClick={() => onChange(page - 1)}
-        disabled={page === 1}
-        aria-label="Halaman sebelumnya"
-        className={cn(base, "border-line text-ink hover:bg-brand-light disabled:cursor-not-allowed disabled:opacity-40")}
-      >
-        <ChevronLeft className="size-4" aria-hidden="true" />
-      </button>
-
-      {pageItems(page, totalPages).map((item, i) =>
-        item === "…" ? (
-          <span key={`gap-${i}`} aria-hidden="true" className="px-1 text-ink/60">
-            …
-          </span>
-        ) : (
-          <button
-            key={item}
-            type="button"
-            onClick={() => onChange(item)}
-            aria-label={`Halaman ${item}`}
-            aria-current={item === page ? "page" : undefined}
-            className={cn(
-              base,
-              item === page ? "border-brand bg-brand text-white" : "border-line text-ink hover:bg-brand-light"
-            )}
-          >
-            {item}
-          </button>
-        )
-      )}
-
-      <button
-        type="button"
-        onClick={() => onChange(page + 1)}
-        disabled={page === totalPages}
-        aria-label="Halaman berikutnya"
-        className={cn(base, "border-line text-ink hover:bg-brand-light disabled:cursor-not-allowed disabled:opacity-40")}
-      >
-        <ChevronRight className="size-4" aria-hidden="true" />
-      </button>
-    </nav>
-  );
-}
-
 function CourseCard({ course, status, onStart, onComplete }) {
   return (
-    <article className="flex flex-col overflow-hidden rounded-2xl border border-line bg-white">
-      <CourseImage src={course.imageUrl} />
+    <article
+      className={cn(
+        "group relative flex flex-col overflow-hidden rounded-2xl border bg-white transition-all duration-200 hover:shadow-lg focus-within:ring-2 focus-within:ring-brand/20 motion-safe:hover:-translate-y-1",
+        status === "completed" ? "border-brand/40 hover:border-brand" : "border-line hover:border-brand/40"
+      )}
+    >
+      {/* Garis aksen di atas kartu: memanjang saat kartu disorot */}
+      <span
+        aria-hidden="true"
+        className="absolute inset-x-0 top-0 z-10 h-1 origin-left scale-x-0 bg-gradient-to-r from-brand to-emerald-400 transition-transform duration-300 group-hover:scale-x-100 group-focus-within:scale-x-100 motion-reduce:transition-none"
+      />
 
-      <div className="flex flex-1 flex-col p-6">
-        <header className="flex items-center justify-between gap-3">
-          <p className="flex min-w-0 items-center gap-2.5 text-sm text-ink/80">
-            <span className="grid size-7 shrink-0 place-items-center rounded-md bg-brand-light text-brand">
-              <BookOpen className="size-4" aria-hidden="true" />
-            </span>
-            <span className="truncate">{course.provider}</span>
-          </p>
-
-          {status === "completed" ? (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand px-2.5 py-1 text-xs font-bold text-white">
-              <Check className="size-3" aria-hidden="true" />
-              Selesai
-            </span>
-          ) : status === "enrolled" ? (
-            <span className="shrink-0 rounded-full bg-brand-light px-2.5 py-1 text-xs font-bold text-brand">
-              Sedang diikuti
-            </span>
-          ) : (
-            course.popular && (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-light px-2.5 py-1 text-xs font-bold text-accent">
-                <Sparkle className="size-3 fill-current" aria-hidden="true" />
-                Paling Populer
-              </span>
-            )
-          )}
-        </header>
-
-        <h4 className="mt-5 min-h-12 text-lg font-bold leading-snug text-ink">{course.title}</h4>
-
-        <div className="mt-5 flex flex-wrap gap-2">
-          <span className={cn("rounded-full px-2.5 py-1 text-xs font-bold", LEVEL_BADGE[course.level])}>
-            {course.level}
+      <CourseImage src={course.imageUrl}>
+        {/* Kiri atas: status atau lencana populer */}
+        {status === "completed" ? (
+          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-brand px-2.5 py-1 text-xs font-bold text-white shadow-sm">
+            <Check className="size-3" aria-hidden="true" />
+            Selesai
           </span>
-          <span className="rounded-full border border-line px-2.5 py-1 text-xs font-medium text-ink/80">
+        ) : status === "enrolled" ? (
+          <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1 text-xs font-bold text-brand shadow-sm">
+            <span aria-hidden="true" className="size-2 rounded-full bg-brand motion-safe:animate-pulse" />
+            Sedang diikuti
+          </span>
+        ) : (
+          course.popular && (
+            <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-accent-light px-2.5 py-1 text-xs font-bold text-accent shadow-sm">
+              <Sparkle className="size-3 fill-current" aria-hidden="true" />
+              Paling Populer
+            </span>
+          )
+        )}
+
+        {/* Bawah: level (kiri) dan format belajar (kanan) */}
+        <span className={cn("absolute bottom-3 left-3 rounded-full px-2.5 py-1 text-xs font-bold shadow-sm", LEVEL_BADGE[course.level])}>
+          {course.level}
+        </span>
+        {course.format && (
+          <span className="absolute bottom-3 right-3 rounded-full bg-white/90 px-2.5 py-1 text-xs font-medium text-ink/80 shadow-sm backdrop-blur">
             {course.format}
           </span>
-        </div>
+        )}
+      </CourseImage>
 
-        <div className="mt-5 flex min-h-8 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-line pt-4 text-sm text-ink/80">
-          <span className="inline-flex items-center gap-2">
-            <Clock className="size-4" aria-hidden="true" />
-            {course.duration}
+      <div className="flex flex-1 flex-col p-6">
+        <p className="flex min-w-0 items-center gap-2.5 text-sm text-ink/80">
+          <span className="grid size-7 shrink-0 place-items-center rounded-md bg-brand-light text-brand transition-colors group-hover:bg-brand group-hover:text-white">
+            <BookOpen className="size-4" aria-hidden="true" />
           </span>
+          <span className="truncate">{course.provider}</span>
+        </p>
 
+        <h4 className="mt-4 min-h-12 text-lg font-bold leading-snug text-ink transition-colors group-hover:text-brand">
+          {course.title}
+        </h4>
+
+        {/* Durasi, lalu kategori tepat di bawahnya */}
+        <ul className="mt-5 space-y-2 border-t border-line pt-4 text-sm text-ink/80">
+          <li className="flex items-center gap-2">
+            <Clock className="size-4 shrink-0" aria-hidden="true" />
+            {course.duration}
+          </li>
           {course.skillTag && (
-            <span className="rounded-md border border-accent px-2 py-0.5 text-xs font-medium text-accent">
-              {course.skillTag}
-            </span>
+            <li className="flex items-center gap-2">
+              <Tag className="size-4 shrink-0" aria-hidden="true" />
+              <span className="rounded-md border border-accent px-2 py-0.5 text-xs font-medium text-accent transition-colors group-hover:bg-accent-light">
+                {course.skillTag}
+              </span>
+            </li>
           )}
-        </div>
+        </ul>
 
         <div className="mt-auto pt-5">
           {status === "completed" ? (
@@ -270,10 +230,10 @@ function CourseCard({ course, status, onStart, onComplete }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 size="lg"
-                className="w-full bg-brand hover:bg-brand/90"
+                className="group/btn w-full bg-brand hover:bg-brand/90"
               >
                 Lanjutkan Belajar di Udemy
-                <ExternalLink className="size-4" aria-hidden="true" />
+                <ExternalLink className="size-4 transition-transform motion-safe:group-hover/btn:translate-x-0.5 motion-safe:group-hover/btn:-translate-y-0.5" aria-hidden="true" />
               </Button>
               <Button
                 size="sm"
@@ -290,11 +250,11 @@ function CourseCard({ course, status, onStart, onComplete }) {
               target="_blank"
               rel="noopener noreferrer"
               size="lg"
-              className="w-full bg-brand hover:bg-brand/90"
+              className="group/btn w-full bg-brand hover:bg-brand/90"
               onClick={() => onStart(course.id)}
             >
               Daftar di Udemy
-              <ExternalLink className="size-4" aria-hidden="true" />
+              <ExternalLink className="size-4 transition-transform motion-safe:group-hover/btn:translate-x-0.5 motion-safe:group-hover/btn:-translate-y-0.5" aria-hidden="true" />
             </Button>
           )}
         </div>
@@ -677,7 +637,7 @@ function LearningPathContent({ initialQuery = "", job = "" }) {
                     ))}
                   </div>
                   {totalPages > 1 ? (
-                    <Pagination page={currentPage} totalPages={totalPages} onChange={goToPage} />
+                    <Pagination page={currentPage} totalPages={totalPages} onChange={goToPage} label="Halaman pelatihan" />
                   ) : null}
                 </>
               )}

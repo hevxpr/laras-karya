@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Check, Lock } from "lucide-react";
 
 import { FeaturedJobCard, JobCard } from "@/components/jobs/job-card";
-import { JOBS } from "@/lib/mock-jobs";
 
 /*
   Pratinjau hasil untuk TAMU (belum masuk): rekomendasi teratas tampil utuh, sisanya diburamkan,
@@ -16,8 +15,9 @@ import { JOBS } from "@/lib/mock-jobs";
   DATA KARTU TERKUNCI: yang dikirim ke browser hanya bahan "umpan" (sektor, pola kerja, skor), bukan
   judul, perusahaan, gaji, lokasi, atau keahlian asli (lihat lockedStub). Jadi meski blur dihapus lewat
   DevTools, yang terlihat hanya kartu contoh. Satu kartu utuh (VISIBLE) memang sengaja terbuka.
-  KONTRAK UNTUK BACKEND: respons untuk tamu cukup { total, top, teaser: [{ sector, mode, match }] };
-  data lengkap baru dikirim setelah masuk (dijaga RLS), sehingga tidak ada lowongan terkunci di browser.
+  DATA: dibaca di server dari fungsi database guest_jobs_preview (lib/guest-preview-db.js) dan dikirim lewat props:
+  { total, top, teaser: [{ sector, mode }] }. Tamu tidak punya skor kecocokan, jadi tidak ada angka % di sini;
+  skor, alasan, dan skill gap baru muncul setelah masuk.
 */
 const VISIBLE = 1;
 const BLURRED = 4;
@@ -25,8 +25,6 @@ const BLURRED = 4;
 // menampilkan lamaran; catatan "Beberapa minggu kemudian" muncul saat Beranda/Lamaran/Bookmark dibuka
 // (components/demo/history-gate.jsx).
 const NEXT = "/recommended-jobs";
-// JOBS sudah terurut dari skor tertinggi.
-const OPEN_JOBS = JOBS.filter((j) => j.status === "dibuka");
 
 // Isi kartu contoh untuk bagian terkunci (sengaja generik).
 const STUB_TITLES = ["Spesialis Keberlanjutan", "Koordinator Program Hijau", "Analis Dampak Lingkungan", "Konsultan Energi Bersih"];
@@ -40,7 +38,7 @@ function lockedStub(job, i) {
     company: STUB_COMPANIES[i % STUB_COMPANIES.length],
     sector: job.sector,
     mode: job.mode,
-    match: job.match,
+    match: null,
     city: "Indonesia",
     salary: "Rp •• – •• juta/bulan",
     status: "dibuka",
@@ -56,23 +54,34 @@ const BENEFITS = [
   "Lamar langsung dari satu tempat",
 ];
 
-export function GuestPreview() {
-  const total = OPEN_JOBS.length;
-  const shown = OPEN_JOBS.slice(0, VISIBLE);
-  const locked = OPEN_JOBS.slice(VISIBLE, VISIBLE + BLURRED);
-  const hiddenCount = total - VISIBLE;
+/**
+ * @param {{ preview: { total: number, top: object|null, teaser: Array<{ sector: string, mode: string|null }> } }} props
+ */
+export function GuestPreview({ preview }) {
+  const { total, top, teaser } = preview;
+  const shown = top ? [top] : [];
+  const locked = teaser.slice(0, BLURRED);
+  const hiddenCount = Math.max(0, total - VISIBLE);
+
+  if (!top) {
+    return (
+      <p className="mt-6 rounded-2xl border border-line bg-white p-5 text-sm text-slate-600">
+        Belum ada lowongan hijau yang dibuka saat ini. Daftar gratis agar Anda mendapat kabar saat rekomendasi tersedia.
+      </p>
+    );
+  }
 
   return (
     <div className="mt-6">
       <p className="text-sm text-slate-600">
-        Kami menemukan <strong className="font-bold text-ink">{total} lowongan hijau</strong> yang cocok
-        dengan jawaban Anda. {VISIBLE} ditampilkan di bawah, {hiddenCount} lainnya terbuka setelah Anda
-        mendaftar.
+        Saat ini ada <strong className="font-bold text-ink">{total} lowongan hijau</strong> yang dibuka.{" "}
+        {VISIBLE} ditampilkan di bawah{hiddenCount > 0 ? `, ${hiddenCount} lainnya terbuka setelah Anda mendaftar` : ""}.
+        Skor kecocokan dihitung setelah Anda masuk.
       </p>
 
       {shown.map((job) => (
         <div key={job.id} className="mt-6">
-          <FeaturedJobCard job={job} hideApplied />
+          <FeaturedJobCard job={job} hideApplied guest />
         </div>
       ))}
 
@@ -83,8 +92,8 @@ export function GuestPreview() {
             inert
             className="pointer-events-none grid select-none items-stretch gap-5 opacity-90 blur-[5px] md:grid-cols-2"
           >
-            {locked.map((job, i) => (
-              <JobCard key={job.id} job={lockedStub(job, i)} />
+            {locked.map((item, i) => (
+              <JobCard key={`terkunci-${i}`} job={lockedStub(item, i)} />
             ))}
           </div>
 
@@ -94,7 +103,7 @@ export function GuestPreview() {
                 <Lock className="size-5" aria-hidden="true" />
               </span>
               <h2 id="gate-title" className="mt-3 text-xl font-bold text-ink">
-                Lihat {hiddenCount} lowongan cocok lainnya
+                Lihat {hiddenCount} lowongan hijau lainnya
               </h2>
               <p className="mt-1.5 text-sm text-ink/80">
                 Daftar gratis untuk membuka semua rekomendasi.

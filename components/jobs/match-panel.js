@@ -54,6 +54,22 @@ export function SkillGapList({ owned, missing }) {
   );
 }
 
+/** Pengganti MatchPanel untuk tamu: belum ada skor, alasan, atau skill gap karena belum ada profil. */
+export function GuestMatchPanel() {
+  return (
+    <aside aria-label="Kecocokan dengan profil Anda" className="rounded-2xl bg-white p-6">
+      <h3 className="flex items-center gap-2 font-bold text-ai">
+        <Sparkles className="h-4 w-4" aria-hidden /> Mengapa cocok untuk Anda
+      </h3>
+      <p className="mt-5 font-bold text-ink">Skor kecocokan dihitung dari profil Anda</p>
+      <p className="mt-1 text-sm text-slate-600">
+        Setelah masuk, Anda melihat tingkat kecocokan, alasan, dan skill gap untuk lowongan ini, berdasarkan keahlian,
+        sektor, pengalaman, pola kerja, lokasi, dan pendidikan Anda.
+      </p>
+    </aside>
+  );
+}
+
 export default function MatchPanel({ job }) {
   const r = 26;
   const c = 2 * Math.PI * r;

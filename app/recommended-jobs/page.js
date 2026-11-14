@@ -6,6 +6,7 @@ import { GuestPreview } from "@/components/jobs/guest-preview";
 import { Footer } from "@/components/layout/footer";
 import { PageBanner } from "@/components/ui/page-banner";
 import { hasCompletedAssessment } from "@/lib/assessment-status";
+import { fetchGuestPreview } from "@/lib/guest-preview-db";
 import { fetchRecommendedJobs } from "@/lib/recommended-jobs-db";
 import { getCurrentUser } from "@/lib/session";
 
@@ -40,11 +41,21 @@ async function AssessmentBadge() {
   - pengguna sudah masuk -> daftar penuh (JobList)
   Pembedanya sesi Supabase Auth (lib/session.js), dibaca di server di dalam <Suspense>.
   Daftar penuh dibaca dari Supabase (lib/recommended-jobs-db.js) lalu dikirim ke JobList lewat props.
-  Pratinjau tamu masih memakai data contoh.
+  Pratinjau tamu dibaca dari fungsi database guest_jobs_preview (lib/guest-preview-db.js).
 */
 async function Results() {
   const user = await getCurrentUser();
-  if (!user) return <GuestPreview />;
+  if (!user) {
+    const { preview, error } = await fetchGuestPreview();
+    if (error) {
+      return (
+        <div role="alert" className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+          {error}
+        </div>
+      );
+    }
+    return <GuestPreview preview={preview} />;
+  }
   const [{ jobs, error }, assessed] = await Promise.all([fetchRecommendedJobs(user), hasCompletedAssessment(user)]);
   const assessmentDone = assessed !== false; // gagal dibaca: anggap sudah, supaya tidak salah mengajak
   if (error) {

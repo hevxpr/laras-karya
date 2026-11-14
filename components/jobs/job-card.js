@@ -9,7 +9,7 @@ import {
   Star,
   Wallet,
 } from "lucide-react";
-import MatchPanel, { splitSkills } from "./match-panel";
+import MatchPanel, { GuestMatchPanel, splitSkills } from "./match-panel";
 import { FacilityBadges } from "./facility-badges";
 
 import { useHasApplied } from "@/lib/demo-history";
@@ -27,7 +27,7 @@ function TopRow({ job, showMatch = true, hideApplied = false }) {
       </span>
       <div className="flex flex-wrap items-center justify-end gap-2">
         {!hideApplied && applied && <AppliedBadge />}
-        {showMatch && (
+        {showMatch && job.match != null && (
           <span className="rounded-full bg-ai/10 px-3 py-1 text-xs font-semibold text-ai">
             {job.match}% Cocok
           </span>
@@ -72,7 +72,7 @@ function SkillSummary({ job }) {
 }
 
 /** hideApplied: sembunyikan lencana "Sudah Dilamar" (dipakai pratinjau tamu, yang belum punya lamaran). */
-export function FeaturedJobCard({ job, hideApplied = false, selectedFacilities = [] }) {
+export function FeaturedJobCard({ job, hideApplied = false, guest = false, selectedFacilities = [] }) {
   return (
     <section
       aria-label="Rekomendasi paling cocok"
@@ -127,7 +127,7 @@ export function FeaturedJobCard({ job, hideApplied = false, selectedFacilities =
           </div>
         </article>
 
-        <MatchPanel job={job} />
+        {guest ? <GuestMatchPanel /> : <MatchPanel job={job} />}
       </div>
     </section>
   );
