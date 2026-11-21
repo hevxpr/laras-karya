@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Check, Sparkles } from "lucide-react";
 import { buildReasons } from "@/lib/match-reasons";
-import { learningPathHref } from "@/app/api/learning/route";
+import { learningPathHref } from "@/lib/routes";
 
 export function splitSkills(job) {
   const missing = (job.gaps ?? []).map((g) => (Array.isArray(g) ? g[0] : g));

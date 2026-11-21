@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ScrollLink } from "@/components/jobs/scroll-link";
 import { ArrowRight, BookOpen, Check, CheckCircle2, X } from "lucide-react";
 
-import { learningPathHref } from "@/app/api/learning/route";
+import { learningPathHref } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { useHasApplied } from "@/lib/demo-history";
 import { groupSkills } from "@/lib/skill-groups";
